@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile } from '../lib/supabase'
-import { Package, Gauge } from 'lucide-react'
+import { Package, Gauge, AlertTriangle, Clock, Wallet } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
@@ -88,9 +88,39 @@ export default function StaffDashboard({ user }: { user: any }) {
     return labels[status] || status
   }
 
+  const getDeadlineInfo = (order: Order) => {
+    if (!order.deadline_at || order.status === 'completed' || order.status === 'cancelled') {
+      return null
+    }
+    const deadline = new Date(order.deadline_at)
+    const now = new Date()
+    const hoursLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+    if (hoursLeft < 0) {
+      return { label: 'মেয়াদোত্তীর্ণ', color: 'bg-red-100 text-red-800', overdue: true }
+    }
+    if (hoursLeft <= 6) {
+      return { label: `${Math.max(0, Math.round(hoursLeft))} ঘণ্টা বাকি`, color: 'bg-orange-100 text-orange-800', overdue: false }
+    }
+    return {
+      label: formatDistanceToNow(deadline, { locale: bn, addSuffix: true }),
+      color: 'bg-gray-100 text-gray-600',
+      overdue: false,
+    }
+  }
+
   const activeWorkload = orders.filter(
     (o) => o.status === 'pending' || o.status === 'processing'
   ).length
+
+  const overdueCount = orders.filter((o) => {
+    const info = getDeadlineInfo(o)
+    return info?.overdue
+  }).length
+
+  const totalCommission = orders
+    .filter((o) => o.status === 'completed')
+    .reduce((sum, o) => sum + (o.commission_amount || 0), 0)
 
   const maxOrders = myProfile?.max_concurrent_orders ?? 10
   const workloadPercent = Math.min(100, Math.round((activeWorkload / maxOrders) * 100))
@@ -120,7 +150,7 @@ export default function StaffDashboard({ user }: { user: any }) {
           <p className="text-gray-600 mt-2">স্বাগতম, {user.email}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className={`rounded-lg shadow p-6 ${getWorkloadColor()}`}>
             <div className="flex items-center justify-between">
               <div>
@@ -141,6 +171,28 @@ export default function StaffDashboard({ user }: { user: any }) {
                 <p className="text-3xl font-bold text-indigo-600">{orders.length}</p>
               </div>
               <Package className="w-12 h-12 text-indigo-200" />
+            </div>
+          </div>
+
+          <div className={`rounded-lg shadow p-6 ${overdueCount > 0 ? 'bg-red-50' : 'bg-white'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-semibold">মেয়াদোত্তীর্ণ অর্ডার</p>
+                <p className={`text-3xl font-bold ${overdueCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                  {overdueCount}
+                </p>
+              </div>
+              <AlertTriangle className={`w-12 h-12 ${overdueCount > 0 ? 'text-red-300' : 'text-gray-200'}`} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-semibold">মোট কমিশন (এই পর্যন্ত)</p>
+                <p className="text-3xl font-bold text-green-600">৳{totalCommission}</p>
+              </div>
+              <Wallet className="w-12 h-12 text-green-200" />
             </div>
           </div>
 
@@ -178,6 +230,7 @@ export default function StaffDashboard({ user }: { user: any }) {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সেবা</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিমাণ</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অবস্থা</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ডেডলাইন</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সময়</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
                 </tr>
@@ -185,7 +238,7 @@ export default function StaffDashboard({ user }: { user: any }) {
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                       আপনার কাছে এখনো কোনো অর্ডার অ্যাসাইন করা হয়নি
                     </td>
                   </tr>
@@ -207,6 +260,19 @@ export default function StaffDashboard({ user }: { user: any }) {
                         <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
                           {getStatusLabel(order.status)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const info = getDeadlineInfo(order)
+                          if (!info) return <span className="text-gray-300 text-sm">-</span>
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${info.color}`}>
+                              {info.overdue && <AlertTriangle size={12} />}
+                              {!info.overdue && <Clock size={12} />}
+                              {info.label}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDistanceToNow(new Date(order.created_at), { locale: bn, addSuffix: true })}
