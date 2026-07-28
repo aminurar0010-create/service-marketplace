@@ -85,20 +85,20 @@ export default function OrderForm() {
         }
       }
 
-      // অর্ডার তৈরি করুন
-      const { data, error } = await supabase
-        .from('orders')
-        .insert([
-          {
-            service_id: formData.service_id,
-            customer_name: formData.customer_name,
-            customer_phone: formData.customer_phone,
-            customer_email: formData.customer_email || null,
-            payment_method: formData.payment_method,
-            documents: uploadedDocs,
-            total_amount,
-            status: 'pending',
-            payment_status: 'unpaid',
+      // অর্ডার তৈরি করুন (RLS bypass করা SECURITY DEFINER ফাংশন দিয়ে)
+      const { data: newTrackingId, error } = await supabase.rpc('create_order', {
+        p_service_id: formData.service_id,
+        p_customer_name: formData.customer_name,
+        p_customer_phone: formData.customer_phone,
+        p_customer_email: formData.customer_email || null,
+        p_payment_method: formData.payment_method,
+        p_documents: uploadedDocs,
+        p_total_amount: total_amount,
+      })
+
+      if (error) throw error
+
+      setTrackingId(newTrackingId)',
           },
         ])
         .select()
