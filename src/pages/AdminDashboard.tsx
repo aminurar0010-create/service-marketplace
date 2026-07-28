@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile } from '../lib/supabase'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
@@ -13,6 +13,8 @@ export default function AdminDashboard({ user }: { user: any }) {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [staffLoading, setStaffLoading] = useState(false)
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
+  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -127,6 +129,23 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
   }
 
+  const autoAssignStaff = async (orderId: string) => {
+    setAssigningOrderId(orderId)
+    try {
+      const { error } = await supabase.rpc('auto_assign_order', {
+        p_order_id: orderId,
+      })
+
+      if (error) throw error
+      fetchData()
+    } catch (error) {
+      console.error('অটো অ্যাসাইন ত্রুটি:', error)
+      alert('অটো অ্যাসাইন করতে সমস্যা হয়েছে')
+    } finally {
+      setAssigningOrderId(null)
+    }
+  }
+
   const toggleRole = async (profileId: string, currentRole: string) => {
     if (profileId === user.id) {
       alert('নিজের role নিজে পরিবর্তন করা যাবে না')
@@ -155,6 +174,13 @@ export default function AdminDashboard({ user }: { user: any }) {
 
   const getServiceName = (serviceId: string) => {
     return services.find((s) => s.id === serviceId)?.name || 'অজানা'
+  }
+
+  const getStaffName = (staffId?: string) => {
+    if (!staffId) return null
+    return profiles.find((p) => p.id === staffId)?.full_name
+      || staffList.find((s) => s.id === staffId)?.full_name
+      || 'নামহীন স্টাফ'
   }
 
   const getStatusColor = (status: string) => {
@@ -328,6 +354,15 @@ export default function AdminDashboard({ user }: { user: any }) {
                                   </option>
                                 ))}
                               </select>
+                              <button
+                                onClick={() => autoAssignStaff(order.id)}
+                                disabled={assigningOrderId === order.id}
+                                title="সিস্টেম অটোমেটিক সবচেয়ে কম-ব্যস্ত স্টাফকে অ্যাসাইন করবে"
+                                className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 whitespace-nowrap"
+                              >
+                                <Wand2 size={14} />
+                                {assigningOrderId === order.id ? 'হচ্ছে...' : 'অটো'}
+                              </button>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
@@ -381,6 +416,9 @@ export default function AdminDashboard({ user }: { user: any }) {
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">নাম</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ফোন</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">স্পেশালাইজেশন</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সর্বোচ্চ অর্ডার</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Available</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">যোগদান</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
                     </tr>
@@ -388,7 +426,7 @@ export default function AdminDashboard({ user }: { user: any }) {
                   <tbody>
                     {profiles.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                           কোনো প্রোফাইল পাওয়া যায়নি
                         </td>
                       </tr>
@@ -413,17 +451,45 @@ export default function AdminDashboard({ user }: { user: any }) {
                               {p.role === 'admin' ? 'অ্যাডমিন' : 'স্টাফ'}
                             </span>
                           </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {p.specialization && p.specialization.length > 0
+                              ? p.specialization.join(', ')
+                              : <span className="text-gray-400">সব ধরনের কাজ</span>}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {p.max_concurrent_orders ?? 10}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                                p.is_available
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-200 text-gray-600'
+                              }`}
+                            >
+                              {p.is_available ? 'হ্যাঁ' : 'না'}
+                            </span>
+                          </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             {formatDistanceToNow(new Date(p.created_at), { locale: bn, addSuffix: true })}
                           </td>
                           <td className="px-6 py-4">
-                            <button
-                              onClick={() => toggleRole(p.id, p.role)}
-                              disabled={p.id === user.id}
-                              className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-gray-300 disabled:cursor-not-allowed"
-                            >
-                              {p.role === 'admin' ? 'স্টাফ বানাও' : 'অ্যাডমিন বানাও'}
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setEditingProfile(p)}
+                                className="flex items-center gap-1 text-sm font-semibold text-gray-600 hover:text-indigo-600"
+                              >
+                                <Settings size={14} />
+                                এডিট
+                              </button>
+                              <button
+                                onClick={() => toggleRole(p.id, p.role)}
+                                disabled={p.id === user.id}
+                                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-gray-300 disabled:cursor-not-allowed"
+                              >
+                                {p.role === 'admin' ? 'স্টাফ বানাও' : 'অ্যাডমিন বানাও'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -434,6 +500,132 @@ export default function AdminDashboard({ user }: { user: any }) {
             )}
           </div>
         )}
+      </div>
+
+      {editingProfile && (
+        <StaffProfileEditModal
+          profile={editingProfile}
+          onClose={() => setEditingProfile(null)}
+          onUpdated={fetchProfiles}
+        />
+      )}
+    </div>
+  )
+}
+
+function StaffProfileEditModal({
+  profile,
+  onClose,
+  onUpdated,
+}: {
+  profile: Profile
+  onClose: () => void
+  onUpdated: () => void
+}) {
+  const [specialization, setSpecialization] = useState(
+    (profile.specialization || []).join(', ')
+  )
+  const [maxOrders, setMaxOrders] = useState(profile.max_concurrent_orders ?? 10)
+  const [isAvailable, setIsAvailable] = useState(profile.is_available ?? true)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const specArray = specialization
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          specialization: specArray,
+          max_concurrent_orders: maxOrders,
+          is_available: isAvailable,
+        })
+        .eq('id', profile.id)
+
+      if (error) throw error
+
+      onUpdated()
+      onClose()
+    } catch (error) {
+      console.error('প্রোফাইল আপডেট ত্রুটি:', error)
+      alert('আপডেট করতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">
+            {profile.full_name || 'স্টাফ'} — প্রোফাইল এডিট
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">
+            স্পেশালাইজেশন (কমা দিয়ে আলাদা করুন, ক্যাটাগরি অনুযায়ী)
+          </label>
+          <input
+            type="text"
+            value={specialization}
+            onChange={(e) => setSpecialization(e.target.value)}
+            placeholder="যেমন: ভিসা, আইটি"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            services টেবিলের category কলামের মান অনুযায়ী লিখুন। খালি রাখলে এই স্টাফ সব ধরনের কাজের জন্য বিবেচিত হবে।
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">
+            সর্বোচ্চ একসাথে কতগুলো অর্ডার নিতে পারবে
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={maxOrders}
+            onChange={(e) => setMaxOrders(Number(e.target.value))}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="mb-6">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isAvailable}
+              onChange={(e) => setIsAvailable(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span className="font-semibold">এই স্টাফ এখন কাজ নিতে পারবে (Available)</span>
+          </label>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+          >
+            {saving ? 'সেভ হচ্ছে...' : 'সেভ করুন'}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
+          >
+            বাতিল
+          </button>
+        </div>
       </div>
     </div>
   )
