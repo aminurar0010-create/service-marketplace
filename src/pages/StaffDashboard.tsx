@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { supabase, Order, Service } from '../lib/supabase'
-import { Package } from 'lucide-react'
+import { supabase, Order, Service, Profile } from '../lib/supabase'
+import { Package, Gauge } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
 export default function StaffDashboard({ user }: { user: any }) {
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [myProfile, setMyProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,7 +26,6 @@ export default function StaffDashboard({ user }: { user: any }) {
 
   const fetchData = async () => {
     try {
-      // শুধু নিজের কাছে অ্যাসাইন করা অর্ডার আনো
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*')
@@ -40,6 +40,14 @@ export default function StaffDashboard({ user }: { user: any }) {
         .eq('is_active', true)
 
       setServices(servicesData || [])
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      setMyProfile(profileData)
     } catch (error) {
       console.error('ডেটা লোড ত্রুটি:', error)
     } finally {
@@ -80,6 +88,19 @@ export default function StaffDashboard({ user }: { user: any }) {
     return labels[status] || status
   }
 
+  const activeWorkload = orders.filter(
+    (o) => o.status === 'pending' || o.status === 'processing'
+  ).length
+
+  const maxOrders = myProfile?.max_concurrent_orders ?? 10
+  const workloadPercent = Math.min(100, Math.round((activeWorkload / maxOrders) * 100))
+
+  const getWorkloadColor = () => {
+    if (workloadPercent >= 90) return 'text-red-600 bg-red-50'
+    if (workloadPercent >= 60) return 'text-orange-600 bg-orange-50'
+    return 'text-green-600 bg-green-50'
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -97,6 +118,49 @@ export default function StaffDashboard({ user }: { user: any }) {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">স্টাফ ড্যাশবোর্ড</h1>
           <p className="text-gray-600 mt-2">স্বাগতম, {user.email}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className={`rounded-lg shadow p-6 ${getWorkloadColor()}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold opacity-80">বর্তমান ওয়ার্কলোড</p>
+                <p className="text-3xl font-bold">
+                  {activeWorkload} / {maxOrders}
+                </p>
+                <p className="text-xs opacity-70 mt-1">অপেক্ষায় + প্রক্রিয়াধীন অর্ডার</p>
+              </div>
+              <Gauge className="w-12 h-12 opacity-30" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-semibold">মোট অ্যাসাইন করা অর্ডার</p>
+                <p className="text-3xl font-bold text-indigo-600">{orders.length}</p>
+              </div>
+              <Package className="w-12 h-12 text-indigo-200" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-semibold">অ্যাভেইলেবিলিটি স্ট্যাটাস</p>
+                <p
+                  className={`text-lg font-bold mt-1 ${
+                    myProfile?.is_available ?? true ? 'text-green-600' : 'text-gray-500'
+                  }`}
+                >
+                  {(myProfile?.is_available ?? true) ? 'কাজ নিতে প্রস্তুত' : 'অনুপলব্ধ'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  পরিবর্তনের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow mb-8">
