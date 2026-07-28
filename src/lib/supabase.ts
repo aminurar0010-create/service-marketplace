@@ -34,9 +34,45 @@ export interface Order {
   payment_method?: string
   payment_status: 'unpaid' | 'paid' | 'refunded'
   total_amount: number
+  coupon_code?: string | null
+  discount_amount?: number
   assigned_staff_id?: string
   created_at: string
   updated_at: string
+}
+
+export interface Coupon {
+  id: string
+  code: string
+  description?: string
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  max_discount_amount?: number | null
+  min_order_amount: number
+  usage_limit?: number | null
+  usage_limit_per_customer: number
+  used_count: number
+  applicable_service_ids?: string[] | null
+  applicable_categories?: string[] | null
+  valid_from: string
+  valid_until?: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface CouponValidationResult {
+  valid: boolean
+  message: string
+  discount_amount?: number
+  final_amount?: number
+}
+
+export interface CreateOrderResult {
+  success: boolean
+  message?: string
+  tracking_id?: string
+  discount_amount?: number
+  final_amount?: number
 }
 
 export interface Profile {
