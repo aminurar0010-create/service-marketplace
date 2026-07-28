@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile } from '../lib/supabase'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
@@ -9,6 +9,7 @@ export default function AdminDashboard({ user }: { user: any }) {
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [staffList, setStaffList] = useState<Profile[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [staffLoading, setStaffLoading] = useState(false)
@@ -55,6 +56,14 @@ export default function AdminDashboard({ user }: { user: any }) {
 
       setServices(servicesData || [])
 
+      const { data: staffData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'staff')
+        .order('full_name', { ascending: true })
+
+      setStaffList(staffData || [])
+
       if (ordersData) {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
@@ -100,6 +109,21 @@ export default function AdminDashboard({ user }: { user: any }) {
       fetchData()
     } catch (error) {
       console.error('অর্ডার আপডেট ত্রুটি:', error)
+    }
+  }
+
+  const assignStaff = async (orderId: string, staffId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ assigned_staff_id: staffId || null })
+        .eq('id', orderId)
+
+      if (error) throw error
+      fetchData()
+    } catch (error) {
+      console.error('স্টাফ অ্যাসাইন ত্রুটি:', error)
+      alert('স্টাফ অ্যাসাইন করতে সমস্যা হয়েছে')
     }
   }
 
@@ -258,6 +282,7 @@ export default function AdminDashboard({ user }: { user: any }) {
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সেবা</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিমাণ</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অবস্থা</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাসাইন করা স্টাফ</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সময়</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
                     </tr>
@@ -265,7 +290,7 @@ export default function AdminDashboard({ user }: { user: any }) {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                           কোনো অর্ডার পাওয়া যায়নি
                         </td>
                       </tr>
@@ -287,6 +312,23 @@ export default function AdminDashboard({ user }: { user: any }) {
                             <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
                               {getStatusLabel(order.status)}
                             </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <UserCheck size={16} className="text-gray-400 flex-shrink-0" />
+                              <select
+                                value={order.assigned_staff_id || ''}
+                                onChange={(e) => assignStaff(order.id, e.target.value)}
+                                className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none min-w-[130px]"
+                              >
+                                <option value="">অনির্ধারিত</option>
+                                {staffList.map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.full_name || 'নামহীন স্টাফ'}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             {formatDistanceToNow(new Date(order.created_at), { locale: bn, addSuffix: true })}
