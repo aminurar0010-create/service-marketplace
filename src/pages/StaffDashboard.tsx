@@ -25,9 +25,11 @@ export default function StaffDashboard({ user }: { user: any }) {
 
   const fetchData = async () => {
     try {
+      // শুধু নিজের কাছে অ্যাসাইন করা অর্ডার আনো
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*')
+        .eq('assigned_staff_id', user.id)
         .order('created_at', { ascending: false })
 
       setOrders(ordersData || [])
@@ -100,7 +102,7 @@ export default function StaffDashboard({ user }: { user: any }) {
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="p-6 border-b border-gray-200 flex items-center gap-3">
             <Package className="text-indigo-600" size={22} />
-            <h2 className="text-xl font-bold">সব অর্ডার</h2>
+            <h2 className="text-xl font-bold">আপনার অ্যাসাইন করা অর্ডার</h2>
           </div>
 
           <div className="overflow-x-auto">
@@ -120,7 +122,7 @@ export default function StaffDashboard({ user }: { user: any }) {
                 {orders.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                      কোনো অর্ডার পাওয়া যায়নি
+                      আপনার কাছে এখনো কোনো অর্ডার অ্যাসাইন করা হয়নি
                     </td>
                   </tr>
                 ) : (
