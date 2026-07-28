@@ -44,5 +44,8 @@ export interface Profile {
   full_name: string
   phone: string
   role: 'admin' | 'staff'
+  specialization: string[]
+  max_concurrent_orders: number
+  is_available: boolean
   created_at: string
 }
