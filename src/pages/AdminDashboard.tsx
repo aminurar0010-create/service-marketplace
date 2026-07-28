@@ -176,13 +176,6 @@ export default function AdminDashboard({ user }: { user: any }) {
     return services.find((s) => s.id === serviceId)?.name || 'অজানা'
   }
 
-  const getStaffName = (staffId?: string) => {
-    if (!staffId) return null
-    return profiles.find((p) => p.id === staffId)?.full_name
-      || staffList.find((s) => s.id === staffId)?.full_name
-      || 'নামহীন স্টাফ'
-  }
-
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
