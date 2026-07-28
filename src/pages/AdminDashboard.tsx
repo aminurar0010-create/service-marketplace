@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
-import { supabase, Order, Service, Profile, Coupon } from '../lib/supabase'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2, Ticket, Plus, Trash2, Pencil } from 'lucide-react'
+import { supabase, Order, Service, Profile, Coupon, StaffPerformance } from '../lib/supabase'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2, Ticket, Plus, Trash2, Pencil, AlertTriangle, Clock, Award } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'staff' | 'coupons'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'staff' | 'coupons' | 'performance'>('orders')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [staffList, setStaffList] = useState<Profile[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [performance, setPerformance] = useState<StaffPerformance[]>([])
   const [loading, setLoading] = useState(true)
   const [staffLoading, setStaffLoading] = useState(false)
   const [couponsLoading, setCouponsLoading] = useState(false)
+  const [performanceLoading, setPerformanceLoading] = useState(false)
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
   const [showCouponModal, setShowCouponModal] = useState(false)
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
@@ -24,6 +26,7 @@ export default function AdminDashboard({ user }: { user: any }) {
     totalRevenue: 0,
     todayOrders: 0,
     todayRevenue: 0,
+    overdueOrders: 0,
   })
 
   useEffect(() => {
@@ -46,6 +49,9 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
     if (activeTab === 'coupons') {
       fetchCoupons()
+    }
+    if (activeTab === 'performance') {
+      fetchPerformance()
     }
   }, [activeTab])
 
@@ -76,16 +82,25 @@ export default function AdminDashboard({ user }: { user: any }) {
       if (ordersData) {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
+        const now = new Date()
 
         const todayOrders = ordersData.filter((o) => new Date(o.created_at) >= today)
         const totalRevenue = ordersData.reduce((sum, o) => sum + o.total_amount, 0)
         const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total_amount, 0)
+        const overdueOrders = ordersData.filter(
+          (o) =>
+            o.deadline_at &&
+            o.status !== 'completed' &&
+            o.status !== 'cancelled' &&
+            new Date(o.deadline_at) < now
+        ).length
 
         setStats({
           totalOrders: ordersData.length,
           totalRevenue,
           todayOrders: todayOrders.length,
           todayRevenue,
+          overdueOrders,
         })
       }
     } catch (error) {
@@ -109,6 +124,44 @@ export default function AdminDashboard({ user }: { user: any }) {
       console.error('প্রোফাইল লোড ত্রুটি:', error)
     } finally {
       setStaffLoading(false)
+    }
+  }
+
+  const fetchPerformance = async () => {
+    setPerformanceLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('staff_performance')
+        .select('*')
+        .order('total_commission', { ascending: false })
+
+      if (error) throw error
+      setPerformance(data || [])
+    } catch (error) {
+      console.error('পারফরম্যান্স লোড ত্রুটি:', error)
+    } finally {
+      setPerformanceLoading(false)
+    }
+  }
+
+  const getDeadlineInfo = (order: Order) => {
+    if (!order.deadline_at || order.status === 'completed' || order.status === 'cancelled') {
+      return null
+    }
+    const deadline = new Date(order.deadline_at)
+    const now = new Date()
+    const hoursLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+    if (hoursLeft < 0) {
+      return { label: 'মেয়াদোত্তীর্ণ', color: 'bg-red-100 text-red-800', overdue: true }
+    }
+    if (hoursLeft <= 6) {
+      return { label: `${Math.max(0, Math.round(hoursLeft))} ঘণ্টা বাকি`, color: 'bg-orange-100 text-orange-800', overdue: false }
+    }
+    return {
+      label: formatDistanceToNow(deadline, { locale: bn, addSuffix: true }),
+      color: 'bg-gray-100 text-gray-600',
+      overdue: false,
     }
   }
 
@@ -307,12 +360,23 @@ export default function AdminDashboard({ user }: { user: any }) {
             <Ticket size={18} />
             কুপন ম্যানেজমেন্ট
           </button>
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'performance'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Award size={18} />
+            কমিশন ও পারফরম্যান্স
+          </button>
         </div>
 
         {activeTab === 'orders' && (
           <>
             {/* পরিসংখ্যান কার্ড */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -352,6 +416,18 @@ export default function AdminDashboard({ user }: { user: any }) {
                   <TrendingUp className="w-12 h-12 text-orange-200" />
                 </div>
               </div>
+
+              <div className={`rounded-lg shadow p-6 ${stats.overdueOrders > 0 ? 'bg-red-50' : 'bg-white'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-sm font-semibold">মেয়াদোত্তীর্ণ অর্ডার</p>
+                    <p className={`text-3xl font-bold ${stats.overdueOrders > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                      {stats.overdueOrders}
+                    </p>
+                  </div>
+                  <AlertTriangle className={`w-12 h-12 ${stats.overdueOrders > 0 ? 'text-red-300' : 'text-gray-200'}`} />
+                </div>
+              </div>
             </div>
 
             {/* অর্ডার তালিকা */}
@@ -369,6 +445,7 @@ export default function AdminDashboard({ user }: { user: any }) {
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সেবা</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিমাণ</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অবস্থা</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ডেডলাইন</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাসাইন করা স্টাফ</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সময়</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
@@ -377,7 +454,7 @@ export default function AdminDashboard({ user }: { user: any }) {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                           কোনো অর্ডার পাওয়া যায়নি
                         </td>
                       </tr>
@@ -399,6 +476,19 @@ export default function AdminDashboard({ user }: { user: any }) {
                             <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
                               {getStatusLabel(order.status)}
                             </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {(() => {
+                              const info = getDeadlineInfo(order)
+                              if (!info) return <span className="text-gray-300 text-sm">-</span>
+                              return (
+                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${info.color}`}>
+                                  {info.overdue && <AlertTriangle size={12} />}
+                                  {!info.overdue && <Clock size={12} />}
+                                  {info.label}
+                                </span>
+                              )
+                            })()}
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
@@ -696,13 +786,97 @@ export default function AdminDashboard({ user }: { user: any }) {
             )}
           </div>
         )}
+
+        {activeTab === 'performance' && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200 flex items-center gap-3">
+              <Award className="text-indigo-600" size={22} />
+              <div>
+                <h2 className="text-xl font-bold">কমিশন ও পারফরম্যান্স</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  কমিশন রেট পরিবর্তন করতে "কমিশন এডিট"-এ ক্লিক করুন (স্টাফ প্রোফাইল এডিট থেকে)
+                </p>
+              </div>
+            </div>
+
+            {performanceLoading ? (
+              <div className="p-12 text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">লোড করছি...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">স্টাফ</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">কমিশন রেট</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সম্পন্ন অর্ডার</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">চলমান অর্ডার</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিচালিত রাজস্ব</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">মোট কমিশন</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">গড় সম্পন্ন সময়</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {performance.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                          কোনো স্টাফ পাওয়া যায়নি
+                        </td>
+                      </tr>
+                    ) : (
+                      performance.map((p) => (
+                        <tr key={p.staff_id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-semibold">{p.full_name || 'নামহীন স্টাফ'}</td>
+                          <td className="px-6 py-4 text-sm">
+                            {p.commission_type === 'percentage'
+                              ? `${p.commission_rate}%`
+                              : `৳${p.commission_rate}`}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-green-700">{p.completed_orders}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{p.active_orders}</td>
+                          <td className="px-6 py-4 text-sm">৳{p.total_revenue_handled}</td>
+                          <td className="px-6 py-4 text-sm font-bold text-indigo-600">৳{p.total_commission}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {p.avg_completion_hours > 0 ? `${p.avg_completion_hours} ঘণ্টা` : '-'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => {
+                                const staffProfile = profiles.find((pr) => pr.id === p.staff_id) || staffList.find((pr) => pr.id === p.staff_id)
+                                if (staffProfile) {
+                                  setEditingProfile(staffProfile)
+                                } else {
+                                  alert('প্রোফাইল খুঁজে পেতে আগে "স্টাফ ম্যানেজমেন্ট" ট্যাবে একবার যান')
+                                }
+                              }}
+                              className="flex items-center gap-1 text-sm font-semibold text-gray-600 hover:text-indigo-600"
+                            >
+                              <Pencil size={14} />
+                              কমিশন এডিট
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {editingProfile && (
         <StaffProfileEditModal
           profile={editingProfile}
           onClose={() => setEditingProfile(null)}
-          onUpdated={fetchProfiles}
+          onUpdated={() => {
+            fetchProfiles()
+            fetchPerformance()
+          }}
         />
       )}
 
@@ -735,6 +909,10 @@ function StaffProfileEditModal({
   )
   const [maxOrders, setMaxOrders] = useState(profile.max_concurrent_orders ?? 10)
   const [isAvailable, setIsAvailable] = useState(profile.is_available ?? true)
+  const [commissionType, setCommissionType] = useState<'percentage' | 'fixed'>(
+    profile.commission_type || 'percentage'
+  )
+  const [commissionRate, setCommissionRate] = useState(profile.commission_rate ?? 0)
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
@@ -751,6 +929,8 @@ function StaffProfileEditModal({
           specialization: specArray,
           max_concurrent_orders: maxOrders,
           is_available: isAvailable,
+          commission_type: commissionType,
+          commission_rate: commissionRate,
         })
         .eq('id', profile.id)
 
@@ -805,6 +985,30 @@ function StaffProfileEditModal({
             onChange={(e) => setMaxOrders(Number(e.target.value))}
             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
           />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-semibold mb-2">কমিশন</label>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              value={commissionType}
+              onChange={(e) => setCommissionType(e.target.value as 'percentage' | 'fixed')}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="percentage">শতাংশ (%)</option>
+              <option value="fixed">প্রতি অর্ডার নির্দিষ্ট (৳)</option>
+            </select>
+            <input
+              type="number"
+              min={0}
+              value={commissionRate}
+              onChange={(e) => setCommissionRate(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            অর্ডার সম্পন্ন (completed) হলে এই হার অনুযায়ী কমিশন হিসাব হবে
+          </p>
         </div>
 
         <div className="mb-6">
