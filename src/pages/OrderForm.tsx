@@ -98,14 +98,7 @@ export default function OrderForm() {
 
       if (error) throw error
 
-      setTrackingId(newTrackingId)',
-          },
-        ])
-        .select()
-
-      if (error) throw error
-
-      setTrackingId(data[0]?.tracking_id)
+      setTrackingId(newTrackingId)
       setSubmitted(true)
       setFormData({
         service_id: '',
