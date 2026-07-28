@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
-import { supabase, Order, Service, Profile } from '../lib/supabase'
-import { Package, Gauge, AlertTriangle, Clock, Wallet } from 'lucide-react'
+import { supabase, Order, Service, Profile, Message } from '../lib/supabase'
+import { Package, Gauge, AlertTriangle, Clock, Wallet, MessageSquare, Send } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
 export default function StaffDashboard({ user }: { user: any }) {
+  const [activeTab, setActiveTab] = useState<'orders' | 'messages'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [myProfile, setMyProfile] = useState<Profile | null>(null)
+  const [adminList, setAdminList] = useState<Profile[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null)
+  const [messageText, setMessageText] = useState('')
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [sendingMessage, setSendingMessage] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchData()
+    fetchMessages()
     const subscription = supabase
       .channel('staff-orders-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -19,8 +27,16 @@ export default function StaffDashboard({ user }: { user: any }) {
       })
       .subscribe()
 
+    const messagesSubscription = supabase
+      .channel('staff-messages-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        fetchMessages()
+      })
+      .subscribe()
+
     return () => {
       subscription.unsubscribe()
+      messagesSubscription.unsubscribe()
     }
   }, [])
 
@@ -48,6 +64,17 @@ export default function StaffDashboard({ user }: { user: any }) {
         .single()
 
       setMyProfile(profileData)
+
+      const { data: adminData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'admin')
+        .order('full_name', { ascending: true })
+
+      setAdminList(adminData || [])
+      if (adminData && adminData.length > 0) {
+        setSelectedAdminId((prev) => prev || adminData[0].id)
+      }
     } catch (error) {
       console.error('ডেটা লোড ত্রুটি:', error)
     } finally {
@@ -61,6 +88,64 @@ export default function StaffDashboard({ user }: { user: any }) {
       fetchData()
     } catch (error) {
       console.error('অর্ডার আপডেট ত্রুটি:', error)
+    }
+  }
+
+  const fetchMessages = async () => {
+    setMessagesLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      setMessages(data || [])
+    } catch (error) {
+      console.error('মেসেজ লোড ত্রুটি:', error)
+    } finally {
+      setMessagesLoading(false)
+    }
+  }
+
+  const totalUnreadMessages = messages.filter(
+    (m) => m.receiver_id === user.id && !m.is_read
+  ).length
+
+  const markConversationRead = async () => {
+    if (!selectedAdminId) return
+    const unreadIds = messages
+      .filter((m) => m.sender_id === selectedAdminId && m.receiver_id === user.id && !m.is_read)
+      .map((m) => m.id)
+
+    if (unreadIds.length > 0) {
+      try {
+        await supabase.from('messages').update({ is_read: true }).in('id', unreadIds)
+        fetchMessages()
+      } catch (error) {
+        console.error('মেসেজ পঠিত হিসেবে চিহ্নিত করতে ত্রুটি:', error)
+      }
+    }
+  }
+
+  const sendMessage = async () => {
+    if (!messageText.trim() || !selectedAdminId || sendingMessage) return
+    setSendingMessage(true)
+    try {
+      const { error } = await supabase.from('messages').insert({
+        sender_id: user.id,
+        receiver_id: selectedAdminId,
+        content: messageText.trim(),
+        is_read: false,
+      })
+      if (error) throw error
+      setMessageText('')
+      fetchMessages()
+    } catch (error) {
+      console.error('মেসেজ পাঠাতে ত্রুটি:', error)
+    } finally {
+      setSendingMessage(false)
     }
   }
 
@@ -122,6 +207,12 @@ export default function StaffDashboard({ user }: { user: any }) {
     .filter((o) => o.status === 'completed')
     .reduce((sum, o) => sum + (o.commission_amount || 0), 0)
 
+  useEffect(() => {
+    if (activeTab === 'messages') {
+      markConversationRead()
+    }
+  }, [activeTab, selectedAdminId, messages.length])
+
   const maxOrders = myProfile?.max_concurrent_orders ?? 10
   const workloadPercent = Math.min(100, Math.round((activeWorkload / maxOrders) * 100))
 
@@ -150,6 +241,34 @@ export default function StaffDashboard({ user }: { user: any }) {
           <p className="text-gray-600 mt-2">স্বাগতম, {user.email}</p>
         </div>
 
+        <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-lg shadow inline-flex">
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'orders' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Package size={18} />
+            আমার অর্ডার
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'messages' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <MessageSquare size={18} />
+            মেসেজ
+            {totalUnreadMessages > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {totalUnreadMessages}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'orders' && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className={`rounded-lg shadow p-6 ${getWorkloadColor()}`}>
             <div className="flex items-center justify-between">
@@ -296,6 +415,91 @@ export default function StaffDashboard({ user }: { user: any }) {
             </table>
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === 'messages' && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex items-center gap-3">
+              <MessageSquare className="text-indigo-600" size={22} />
+              <h2 className="text-xl font-bold">অ্যাডমিনের সাথে মেসেজ</h2>
+            </div>
+
+            <div className="flex flex-col h-[600px]">
+              {adminList.length > 1 && (
+                <div className="px-6 py-3 border-b border-gray-200 flex items-center gap-2">
+                  <label className="text-sm text-gray-600 font-semibold">প্রাপক:</label>
+                  <select
+                    value={selectedAdminId || ''}
+                    onChange={(e) => setSelectedAdminId(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  >
+                    {adminList.map((admin) => (
+                      <option key={admin.id} value={admin.id}>
+                        {admin.full_name || 'অ্যাডমিন'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 bg-gray-50">
+                {!selectedAdminId ? (
+                  <p className="text-center text-sm text-gray-400 mt-8">কোনো অ্যাডমিন পাওয়া যায়নি</p>
+                ) : messagesLoading ? (
+                  <p className="text-center text-sm text-gray-400">লোড করছি...</p>
+                ) : (
+                  messages
+                    .filter(
+                      (m) =>
+                        (m.sender_id === user.id && m.receiver_id === selectedAdminId) ||
+                        (m.sender_id === selectedAdminId && m.receiver_id === user.id)
+                    )
+                    .map((m) => (
+                      <div key={m.id} className={`flex ${m.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm ${
+                            m.sender_id === user.id
+                              ? 'bg-indigo-600 text-white rounded-br-sm'
+                              : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                          <p className={`text-[10px] mt-1 ${m.sender_id === user.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+                            {formatDistanceToNow(new Date(m.created_at), { locale: bn, addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              <div className="p-4 border-t border-gray-200 flex gap-2">
+                <input
+                  type="text"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      sendMessage()
+                    }
+                  }}
+                  disabled={!selectedAdminId}
+                  placeholder="মেসেজ লিখুন..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!messageText.trim() || !selectedAdminId || sendingMessage}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
