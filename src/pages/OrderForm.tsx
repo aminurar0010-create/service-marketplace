@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase, Service } from '../lib/supabase'
+import { supabase, Service, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Upload, CheckCircle } from 'lucide-react'
+import { Upload, CheckCircle, Tag, X } from 'lucide-react'
 
 export default function OrderForm() {
   const [searchParams] = useSearchParams()
@@ -10,6 +10,7 @@ export default function OrderForm() {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [trackingId, setTrackingId] = useState('')
+  const [finalAmountPaid, setFinalAmountPaid] = useState(0)
 
   const [formData, setFormData] = useState({
     service_id: searchParams.get('service') || '',
@@ -19,6 +20,16 @@ export default function OrderForm() {
     payment_method: 'bkash',
     documents: [] as File[],
   })
+
+  // কুপন সংক্রান্ত স্টেট
+  const [couponInput, setCouponInput] = useState('')
+  const [couponChecking, setCouponChecking] = useState(false)
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string
+    discount_amount: number
+    final_amount: number
+  } | null>(null)
+  const [couponMessage, setCouponMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
   useEffect(() => {
     fetchServices()
@@ -39,6 +50,16 @@ export default function OrderForm() {
   }
 
   const selectedService = services.find((s) => s.id === formData.service_id)
+  const totalAmount = selectedService?.price || 0
+
+  // সার্ভিস বা ফোন নম্বর বদলালে আগের প্রয়োগ করা কুপন বাতিল হয়ে যাবে
+  useEffect(() => {
+    if (appliedCoupon) {
+      setAppliedCoupon(null)
+      setCouponMessage(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.service_id, formData.customer_phone])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -55,6 +76,58 @@ export default function OrderForm() {
     }))
   }
 
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return
+
+    if (!formData.service_id) {
+      setCouponMessage({ text: 'প্রথমে একটি সেবা নির্বাচন করুন', ok: false })
+      return
+    }
+    if (!formData.customer_phone) {
+      setCouponMessage({ text: 'কুপন যাচাই করতে ফোন নম্বর দিন', ok: false })
+      return
+    }
+
+    setCouponChecking(true)
+    setCouponMessage(null)
+
+    try {
+      const { data, error } = await supabase.rpc('validate_coupon', {
+        p_code: couponInput.trim(),
+        p_service_id: formData.service_id,
+        p_order_amount: totalAmount,
+        p_customer_phone: formData.customer_phone,
+      })
+
+      if (error) throw error
+
+      const result = data as CouponValidationResult
+
+      if (result.valid) {
+        setAppliedCoupon({
+          code: couponInput.trim().toUpperCase(),
+          discount_amount: result.discount_amount || 0,
+          final_amount: result.final_amount ?? totalAmount,
+        })
+        setCouponMessage({ text: result.message, ok: true })
+      } else {
+        setAppliedCoupon(null)
+        setCouponMessage({ text: result.message, ok: false })
+      }
+    } catch (error) {
+      console.error('কুপন যাচাই ত্রুটি:', error)
+      setCouponMessage({ text: 'কুপন যাচাই করতে ব্যর্থ। আবার চেষ্টা করুন।', ok: false })
+    } finally {
+      setCouponChecking(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponMessage(null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -66,8 +139,6 @@ export default function OrderForm() {
     setLoading(true)
 
     try {
-      const total_amount = selectedService?.price || 0
-
       // ডকুমেন্ট আপলোড করুন
       const uploadedDocs = []
       for (const file of formData.documents) {
@@ -86,19 +157,29 @@ export default function OrderForm() {
       }
 
       // অর্ডার তৈরি করুন (RLS bypass করা SECURITY DEFINER ফাংশন দিয়ে)
-      const { data: newTrackingId, error } = await supabase.rpc('create_order', {
+      const { data, error } = await supabase.rpc('create_order', {
         p_service_id: formData.service_id,
         p_customer_name: formData.customer_name,
         p_customer_phone: formData.customer_phone,
         p_customer_email: formData.customer_email || null,
         p_payment_method: formData.payment_method,
         p_documents: uploadedDocs,
-        p_total_amount: total_amount,
+        p_total_amount: totalAmount,
+        p_coupon_code: appliedCoupon?.code || null,
       })
 
       if (error) throw error
 
-      setTrackingId(newTrackingId)
+      const result = data as CreateOrderResult
+
+      if (!result.success) {
+        alert(result.message || 'কুপন প্রয়োগ করা যায়নি। দয়া করে কুপন ছাড়া আবার চেষ্টা করুন।')
+        setLoading(false)
+        return
+      }
+
+      setTrackingId(result.tracking_id || '')
+      setFinalAmountPaid(result.final_amount ?? totalAmount)
       setSubmitted(true)
       setFormData({
         service_id: '',
@@ -108,6 +189,9 @@ export default function OrderForm() {
         payment_method: 'bkash',
         documents: [],
       })
+      setAppliedCoupon(null)
+      setCouponInput('')
+      setCouponMessage(null)
     } catch (error) {
       console.error('অর্ডার সৃষ্টি ত্রুটি:', error)
       alert('অর্ডার তৈরি করতে ব্যর্থ। দয়া করে পরে চেষ্টা করুন।')
@@ -129,9 +213,10 @@ export default function OrderForm() {
             <p className="text-sm text-gray-500 mb-2">আপনার ট্র্যাকিং নম্বর:</p>
             <p className="text-2xl font-bold text-indigo-600 font-mono">{trackingId}</p>
           </div>
-          <p className="text-gray-600 mb-6">
-            এই নম্বরটি দিয়ে আপনি যেকোনো সময় আপনার অর্ডারের অবস্থা জানতে পারবেন।
+          <p className="text-gray-600 mb-2">
+            পরিশোধযোগ্য মোট পরিমাণ:
           </p>
+          <p className="text-xl font-bold text-gray-800 mb-6">৳{finalAmountPaid}</p>
           <div className="space-y-2">
             <button
               onClick={() => navigate('/tracking')}
@@ -277,12 +362,70 @@ export default function OrderForm() {
           )}
         </div>
 
+        {/* কুপন কোড */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold mb-2">কুপন কোড (ঐচ্ছিক)</label>
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between bg-green-50 border border-green-300 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-green-600" />
+                <span className="font-semibold text-green-700">{appliedCoupon.code}</span>
+                <span className="text-sm text-green-700">
+                  (-৳{appliedCoupon.discount_amount} ছাড়)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveCoupon}
+                className="text-gray-500 hover:text-red-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent uppercase"
+                placeholder="কুপন কোড লিখুন"
+              />
+              <button
+                type="button"
+                onClick={handleApplyCoupon}
+                disabled={couponChecking || !couponInput.trim()}
+                className="bg-gray-800 text-white px-5 py-2 rounded-lg font-semibold hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {couponChecking ? 'যাচাই হচ্ছে...' : 'প্রয়োগ করুন'}
+              </button>
+            </div>
+          )}
+          {couponMessage && (
+            <p className={`text-sm mt-2 ${couponMessage.ok ? 'text-green-600' : 'text-red-600'}`}>
+              {couponMessage.text}
+            </p>
+          )}
+        </div>
+
         {/* মূল্য সারসংক্ষেপ */}
         {selectedService && (
-          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <div className="bg-gray-50 p-4 rounded-lg mb-6 space-y-2">
             <div className="flex justify-between items-center">
+              <span className="text-gray-600">সাবটোটাল:</span>
+              <span className="font-semibold">৳{totalAmount}</span>
+            </div>
+            {appliedCoupon && (
+              <div className="flex justify-between items-center text-green-600">
+                <span>ছাড় ({appliedCoupon.code}):</span>
+                <span className="font-semibold">-৳{appliedCoupon.discount_amount}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t border-gray-200 pt-2">
               <span className="font-semibold">মোট পরিমাণ:</span>
-              <span className="text-2xl font-bold text-indigo-600">৳{selectedService.price}</span>
+              <span className="text-2xl font-bold text-indigo-600">
+                ৳{appliedCoupon ? appliedCoupon.final_amount : totalAmount}
+              </span>
             </div>
           </div>
         )}
