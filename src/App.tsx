@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from './lib/supabase'
+import { supabase, Profile } from './lib/supabase'
 import Navbar from './components/Navbar'
 
 // Pages
@@ -10,17 +10,36 @@ import OrderForm from './pages/OrderForm'
 import TrackingStatus from './pages/TrackingStatus'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import StaffDashboard from './pages/StaffDashboard'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // অ্যাডমিন সেশন চেক করুন
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user || null
+      setUser(currentUser)
+
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single()
+
+        setProfile(profileData || null)
+      } else {
+        setProfile(null)
+      }
+
       setLoading(false)
     })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
   }, [])
 
   if (loading) {
@@ -34,19 +53,62 @@ export default function App() {
     )
   }
 
+  const isAdmin = profile?.role === 'admin'
+  const isStaff = profile?.role === 'staff'
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-        <Navbar user={user} />
+        <Navbar user={user} profile={profile} />
         <Routes>
           {/* জনসাধারণের রুট */}
           <Route path="/" element={<Home />} />
           <Route path="/order" element={<OrderForm />} />
           <Route path="/tracking" element={<TrackingStatus />} />
 
+          {/* লগইন */}
+          <Route
+            path="/admin/login"
+            element={
+              !user ? (
+                <AdminLogin />
+              ) : isAdmin ? (
+                <Navigate to="/admin/dashboard" />
+              ) : isStaff ? (
+                <Navigate to="/staff/dashboard" />
+              ) : (
+                <AdminLogin />
+              )
+            }
+          />
+
           {/* অ্যাডমিন রুট */}
-          <Route path="/admin/login" element={user ? <Navigate to="/admin/dashboard" /> : <AdminLogin />} />
-          <Route path="/admin/dashboard" element={user ? <AdminDashboard user={user} /> : <Navigate to="/admin/login" />} />
+          <Route
+            path="/admin/dashboard"
+            element={
+              isAdmin ? (
+                <AdminDashboard user={user} />
+              ) : isStaff ? (
+                <Navigate to="/staff/dashboard" />
+              ) : (
+                <Navigate to="/admin/login" />
+              )
+            }
+          />
+
+          {/* স্টাফ রুট */}
+          <Route
+            path="/staff/dashboard"
+            element={
+              isStaff ? (
+                <StaffDashboard user={user} />
+              ) : isAdmin ? (
+                <Navigate to="/admin/dashboard" />
+              ) : (
+                <Navigate to="/admin/login" />
+              )
+            }
+          />
 
           {/* ৪০৪ */}
           <Route path="*" element={<Navigate to="/" />} />
