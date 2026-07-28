@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message } from '../lib/supabase'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2, Ticket, Plus, Trash2, Pencil, AlertTriangle, Clock, Award, MessageSquare, Send } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2, Ticket, Plus, Trash2, Pencil, AlertTriangle, Clock, Award, MessageSquare, Send, Download } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
@@ -22,6 +22,10 @@ export default function AdminDashboard({ user }: { user: any }) {
   const [performanceLoading, setPerformanceLoading] = useState(false)
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
+  const [bulkStaffId, setBulkStaffId] = useState('')
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkProcessing, setBulkProcessing] = useState(false)
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
   const [showCouponModal, setShowCouponModal] = useState(false)
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
@@ -329,6 +333,98 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
   }
 
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    )
+  }
+
+  const toggleSelectAllOrders = () => {
+    if (selectedOrderIds.length === orders.length) {
+      setSelectedOrderIds([])
+    } else {
+      setSelectedOrderIds(orders.map((o) => o.id))
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedOrderIds([])
+    setBulkStaffId('')
+    setBulkStatus('')
+  }
+
+  const bulkAssignStaff = async () => {
+    if (!bulkStaffId || selectedOrderIds.length === 0) return
+    setBulkProcessing(true)
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ assigned_staff_id: bulkStaffId })
+        .in('id', selectedOrderIds)
+
+      if (error) throw error
+      clearSelection()
+      fetchData()
+    } catch (error) {
+      console.error('বাল্ক অ্যাসাইন ত্রুটি:', error)
+      alert('বাল্ক স্টাফ অ্যাসাইন করতে সমস্যা হয়েছে')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const bulkUpdateStatus = async () => {
+    if (!bulkStatus || selectedOrderIds.length === 0) return
+    setBulkProcessing(true)
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: bulkStatus })
+        .in('id', selectedOrderIds)
+
+      if (error) throw error
+      clearSelection()
+      fetchData()
+    } catch (error) {
+      console.error('বাল্ক স্ট্যাটাস আপডেট ত্রুটি:', error)
+      alert('বাল্ক স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const exportSelectedCSV = () => {
+    const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id))
+    if (selectedOrders.length === 0) return
+
+    const headers = ['ট্র্যাকিং ID', 'গ্রাহকের নাম', 'ফোন', 'সেবা', 'পরিমাণ', 'অবস্থা', 'পেমেন্ট', 'ডেডলাইন', 'তৈরির সময়']
+    const rows = selectedOrders.map((o) => [
+      o.tracking_id,
+      o.customer_name,
+      o.customer_phone,
+      getServiceName(o.service_id),
+      o.total_amount,
+      getStatusLabel(o.status),
+      o.payment_status,
+      o.deadline_at || '',
+      o.created_at,
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `orders-export-${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   const toggleRole = async (profileId: string, currentRole: string) => {
     if (profileId === user.id) {
       alert('নিজের role নিজে পরিবর্তন করা যাবে না')
@@ -521,14 +617,91 @@ export default function AdminDashboard({ user }: { user: any }) {
 
             {/* অর্ডার তালিকা */}
             <div className="bg-white rounded-lg shadow">
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
                 <h2 className="text-xl font-bold">সম্প্রতি অর্ডার</h2>
               </div>
+
+              {selectedOrderIds.length > 0 && (
+                <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-semibold text-indigo-700 whitespace-nowrap">
+                    {selectedOrderIds.length}টি অর্ডার সিলেক্ট করা হয়েছে
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={bulkStaffId}
+                      onChange={(e) => setBulkStaffId(e.target.value)}
+                      className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    >
+                      <option value="">স্টাফ নির্বাচন করুন</option>
+                      {staffList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.full_name || 'নামহীন স্টাফ'}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={bulkAssignStaff}
+                      disabled={!bulkStaffId || bulkProcessing}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition disabled:opacity-50 whitespace-nowrap"
+                    >
+                      <UserCheck size={14} />
+                      বাল্ক অ্যাসাইন
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={bulkStatus}
+                      onChange={(e) => setBulkStatus(e.target.value)}
+                      className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    >
+                      <option value="">স্ট্যাটাস নির্বাচন করুন</option>
+                      <option value="pending">অপেক্ষায়</option>
+                      <option value="processing">প্রক্রিয়াধীন</option>
+                      <option value="completed">সম্পন্ন</option>
+                      <option value="cancelled">বাতিল</option>
+                    </select>
+                    <button
+                      onClick={bulkUpdateStatus}
+                      disabled={!bulkStatus || bulkProcessing}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition disabled:opacity-50 whitespace-nowrap"
+                    >
+                      <Pencil size={14} />
+                      বাল্ক স্ট্যাটাস
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={exportSelectedCSV}
+                    className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-sm font-semibold rounded hover:bg-gray-50 transition whitespace-nowrap"
+                  >
+                    <Download size={14} />
+                    CSV এক্সপোর্ট
+                  </button>
+
+                  <button
+                    onClick={clearSelection}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition whitespace-nowrap ml-auto"
+                  >
+                    <X size={14} />
+                    সিলেকশন বাতিল
+                  </button>
+                </div>
+              )}
 
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
+                      <th className="px-4 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={orders.length > 0 && selectedOrderIds.length === orders.length}
+                          onChange={toggleSelectAllOrders}
+                          className="w-4 h-4 cursor-pointer"
+                        />
+                      </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ট্র্যাকিং ID</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">গ্রাহক</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সেবা</th>
@@ -543,13 +716,21 @@ export default function AdminDashboard({ user }: { user: any }) {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
                           কোনো অর্ডার পাওয়া যায়নি
                         </td>
                       </tr>
                     ) : (
                       orders.map((order) => (
                         <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="px-4 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedOrderIds.includes(order.id)}
+                              onChange={() => toggleSelectOrder(order.id)}
+                              className="w-4 h-4 cursor-pointer"
+                            />
+                          </td>
                           <td className="px-6 py-4 text-sm font-mono font-bold text-indigo-600">
                             {order.tracking_id}
                           </td>
