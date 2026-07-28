@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, Service, Order } from '../lib/supabase'
+import { supabase, Service } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Upload, CheckCircle } from 'lucide-react'
 
