@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto } from '../lib/supabase'
-import { Package, Layers, Users, Ticket, Award, MessageSquare, Images } from 'lucide-react'
+import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
@@ -696,7 +696,7 @@ export default function AdminDashboard({ user }: { user: any }) {
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <Images size={18} />
+            <GalleryIcon size={18} />
             গ্যালারি ম্যানেজমেন্ট
           </button>
         </div>

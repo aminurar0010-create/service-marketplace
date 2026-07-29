@@ -1,4 +1,4 @@
-import { Images, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Image as GalleryIcon, Pencil, Plus, Trash2 } from 'lucide-react'
 
 export default function GalleryTab({ ctx }: { ctx: any }) {
   const {
@@ -14,7 +14,7 @@ export default function GalleryTab({ ctx }: { ctx: any }) {
     <div className="bg-white rounded-lg shadow">
       <div className="p-6 border-b border-gray-200 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Images className="text-indigo-600" size={22} />
+          <GalleryIcon className="text-indigo-600" size={22} />
           <div>
             <h2 className="text-xl font-bold">গ্যালারি ম্যানেজমেন্ট</h2>
             <p className="text-sm text-gray-500 mt-1">ওয়েবসাইটের গ্যালারিতে ছবি অ্যাড, এডিট বা ডিলিট করুন</p>
