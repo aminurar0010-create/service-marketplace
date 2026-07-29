@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message } from '../lib/supabase'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2, Ticket, Plus, Trash2, Pencil, AlertTriangle, Clock, Award, MessageSquare, Send, Download } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Shield, UserCheck, Settings, X, Wand2, Ticket, Plus, Trash2, Pencil, AlertTriangle, Clock, Award, MessageSquare, Send, Download, Layers } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'staff' | 'coupons' | 'performance' | 'messages'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages'>('orders')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -29,6 +29,8 @@ export default function AdminDashboard({ user }: { user: any }) {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
   const [showCouponModal, setShowCouponModal] = useState(false)
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
+  const [showServiceModal, setShowServiceModal] = useState(false)
+  const [editingService, setEditingService] = useState<Service | null>(null)
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null)
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -85,7 +87,7 @@ export default function AdminDashboard({ user }: { user: any }) {
       const { data: servicesData } = await supabase
         .from('services')
         .select('*')
-        .eq('is_active', true)
+        .order('category', { ascending: true })
 
       setServices(servicesData || [])
 
@@ -285,6 +287,35 @@ export default function AdminDashboard({ user }: { user: any }) {
     } catch (error) {
       console.error('কুপন ডিলিট ত্রুটি:', error)
       alert('কুপন মুছতে সমস্যা হয়েছে। সম্ভবত এই কুপনটি ইতিমধ্যে কোনো অর্ডারে ব্যবহৃত হয়েছে।')
+    }
+  }
+
+  const toggleServiceActive = async (service: Service) => {
+    try {
+      const { error } = await supabase
+        .from('services')
+        .update({ is_active: !service.is_active })
+        .eq('id', service.id)
+
+      if (error) throw error
+      fetchData()
+    } catch (error) {
+      console.error('সার্ভিস স্ট্যাটাস আপডেট ত্রুটি:', error)
+      alert('সার্ভিস স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
+    }
+  }
+
+  const deleteService = async (service: Service) => {
+    const confirmed = window.confirm(`"${service.name}" সার্ভিসটি স্থায়ীভাবে মুছে ফেলতে চান?`)
+    if (!confirmed) return
+
+    try {
+      const { error } = await supabase.from('services').delete().eq('id', service.id)
+      if (error) throw error
+      fetchData()
+    } catch (error) {
+      console.error('সার্ভিস ডিলিট ত্রুটি:', error)
+      alert('সার্ভিস মুছতে সমস্যা হয়েছে। সম্ভবত এই সার্ভিসে ইতিমধ্যে অর্ডার আছে।')
     }
   }
 
@@ -506,6 +537,17 @@ export default function AdminDashboard({ user }: { user: any }) {
           >
             <Package size={18} />
             অর্ডার ও পরিসংখ্যান
+          </button>
+          <button
+            onClick={() => setActiveTab('services')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'services'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Layers size={18} />
+            সার্ভিস ম্যানেজমেন্ট
           </button>
           <button
             onClick={() => setActiveTab('staff')}
@@ -809,6 +851,104 @@ export default function AdminDashboard({ user }: { user: any }) {
               </div>
             </div>
           </>
+        )}
+
+        {activeTab === 'services' && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Layers className="text-indigo-600" size={22} />
+                <div>
+                  <h2 className="text-xl font-bold">সার্ভিস তালিকা</h2>
+                  <p className="text-sm text-gray-500 mt-1">সার্ভিস অ্যাড, এডিট বা ডিলিট করুন</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingService(null)
+                  setShowServiceModal(true)
+                }}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition"
+              >
+                <Plus size={16} />
+                নতুন সার্ভিস
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">নাম</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ক্যাটাগরি</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">দাম</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">স্ট্যাটাস</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {services.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        কোনো সার্ভিস পাওয়া যায়নি
+                      </td>
+                    </tr>
+                  ) : (
+                    services.map((s) => (
+                      <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm">
+                          <p className="font-semibold">{s.name}</p>
+                          {s.description && (
+                            <p className="text-gray-500 text-xs mt-0.5">{s.description}</p>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{s.category}</td>
+                        <td className="px-6 py-4 text-sm font-semibold">৳{s.price}</td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                              s.is_active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-200 text-gray-600'
+                            }`}
+                          >
+                            {s.is_active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => {
+                                setEditingService(s)
+                                setShowServiceModal(true)
+                              }}
+                              className="flex items-center gap-1 text-sm font-semibold text-gray-600 hover:text-indigo-600"
+                            >
+                              <Pencil size={14} />
+                              এডিট
+                            </button>
+                            <button
+                              onClick={() => toggleServiceActive(s)}
+                              className="text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+                            >
+                              {s.is_active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
+                            </button>
+                            <button
+                              onClick={() => deleteService(s)}
+                              className="flex items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 size={14} />
+                              ডিলিট
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {activeTab === 'staff' && (
@@ -1289,6 +1429,17 @@ export default function AdminDashboard({ user }: { user: any }) {
           onSaved={fetchCoupons}
         />
       )}
+
+      {showServiceModal && (
+        <ServiceFormModal
+          service={editingService}
+          onClose={() => {
+            setShowServiceModal(false)
+            setEditingService(null)
+          }}
+          onSaved={fetchData}
+        />
+      )}
     </div>
   )
 }
@@ -1693,6 +1844,162 @@ function CouponFormModal({
                 className="w-4 h-4"
               />
               <span className="font-semibold">কুপনটি সক্রিয় রাখুন</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+          >
+            {saving ? 'সেভ হচ্ছে...' : 'সেভ করুন'}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 border border-gray-300 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
+          >
+            বাতিল
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ServiceFormModal({
+  service,
+  onClose,
+  onSaved,
+}: {
+  service: Service | null
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const isEditing = !!service
+  const [name, setName] = useState(service?.name || '')
+  const [description, setDescription] = useState(service?.description || '')
+  const [price, setPrice] = useState(service?.price ?? 0)
+  const [category, setCategory] = useState(service?.category || '')
+  const [isActive, setIsActive] = useState(service?.is_active ?? true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    setError('')
+    if (!name.trim()) {
+      setError('সার্ভিসের নাম আবশ্যক')
+      return
+    }
+    if (!category.trim()) {
+      setError('ক্যাটাগরি আবশ্যক')
+      return
+    }
+    if (price < 0) {
+      setError('দাম ০ বা তার বেশি হতে হবে')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const payload = {
+        name: name.trim(),
+        description: description.trim() || null,
+        price,
+        category: category.trim(),
+        is_active: isActive,
+      }
+
+      if (isEditing) {
+        const { error: updateError } = await supabase
+          .from('services')
+          .update(payload)
+          .eq('id', service!.id)
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await supabase.from('services').insert(payload)
+        if (insertError) throw insertError
+      }
+
+      onSaved()
+      onClose()
+    } catch (err: any) {
+      console.error('সার্ভিস সেভ ত্রুটি:', err)
+      setError('সার্ভিস সেভ করতে সমস্যা হয়েছে')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 py-8 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-lg p-6 max-w-lg w-full my-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">{isEditing ? 'সার্ভিস এডিট করুন' : 'নতুন সার্ভিস তৈরি করুন'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2">{error}</div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="col-span-2">
+            <label className="block text-sm font-semibold mb-2">সার্ভিসের নাম</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="যেমন: পাসপোর্ট রিনিউ"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm font-semibold mb-2">বিবরণ (ঐচ্ছিক)</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="সংক্ষিপ্ত বিবরণ"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2">ক্যাটাগরি</label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="যেমন: E-Services & Online Work"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2">দাম (৳)</label>
+            <input
+              type="number"
+              min={0}
+              value={price}
+              onChange={(e) => setPrice(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="font-semibold">সার্ভিসটি সক্রিয় রাখুন (গ্রাহক দেখতে পাবে)</span>
             </label>
           </div>
         </div>
