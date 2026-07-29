@@ -29,6 +29,7 @@ export default function ServicesTab({ ctx }: { ctx: any }) {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ছবি</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">নাম</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ক্যাটাগরি</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">দাম</th>
@@ -39,13 +40,22 @@ export default function ServicesTab({ ctx }: { ctx: any }) {
                 <tbody>
                   {services.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                         কোনো সার্ভিস পাওয়া যায়নি
                       </td>
                     </tr>
                   ) : (
                     services.map((s: any) => (
                       <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                            {s.image_url ? (
+                              <img src={s.image_url} alt={s.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-sm">
                           <p className="font-semibold">{s.name}</p>
                           {s.description && (

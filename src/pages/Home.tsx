@@ -106,9 +106,19 @@ export default function Home() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {groupedServices[categoryName].map((service) => (
                       <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition doc-frame">
-                        <div className="bg-gradient-to-r from-ink-600 to-ink-700 h-32 flex items-center justify-center">
-                          <div className="text-5xl">{getServiceEmoji(service.name)}</div>
-                        </div>
+                        {service.image_url ? (
+                          <div className="h-40 overflow-hidden">
+                            <img
+                              src={service.image_url}
+                              alt={service.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="bg-gradient-to-r from-ink-600 to-ink-700 h-32 flex items-center justify-center">
+                            <div className="text-5xl">{getServiceEmoji(service.name)}</div>
+                          </div>
+                        )}
                         <div className="p-6">
                           <h3 className="text-xl font-bold mb-2 text-charcoal">{service.name}</h3>
                           <p className="text-charcoal/60 mb-4">{service.description}</p>

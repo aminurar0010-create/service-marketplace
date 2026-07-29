@@ -19,6 +19,7 @@ export interface Service {
   price: number
   category: string
   is_active: boolean
+  image_url?: string | null
   estimated_hours?: number
   urgent_fee_type?: 'fixed' | 'percentage' | null
   urgent_fee_value?: number | null

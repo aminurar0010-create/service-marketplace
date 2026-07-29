@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase, Service } from '../lib/supabase'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Plus, Trash2, X, Image as ImageIcon, Loader2 } from 'lucide-react'
 
 export default function ServiceFormModal({
   service,
@@ -17,6 +17,11 @@ export default function ServiceFormModal({
   const [price, setPrice] = useState(service?.price ?? 0)
   const [category, setCategory] = useState(service?.category || '')
   const [isActive, setIsActive] = useState(service?.is_active ?? true)
+
+  // সার্ভিসের ছবি সংক্রান্ত স্টেট
+  const [imageUrl, setImageUrl] = useState(service?.image_url || '')
+  const [imageUploading, setImageUploading] = useState(false)
+  const [imageError, setImageError] = useState('')
 
   // জরুরি (urgent) ফি সংক্রান্ত স্টেট
   const [urgentEnabled, setUrgentEnabled] = useState(!!service?.urgent_fee_type)
@@ -84,6 +89,40 @@ export default function ServiceFormModal({
     setCustomFields((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const handleImageUpload = async (file: File) => {
+    setImageError('')
+    if (!file.type.startsWith('image/')) {
+      setImageError('শুধু ছবি ফাইল আপলোড করা যাবে')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError('ছবির সাইজ ৫MB এর কম হতে হবে')
+      return
+    }
+
+    setImageUploading(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const filePath = `${crypto.randomUUID()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('service-images')
+        .upload(filePath, file, { upsert: false })
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage
+        .from('service-images')
+        .getPublicUrl(filePath)
+
+      setImageUrl(publicUrlData.publicUrl)
+    } catch (err) {
+      console.error('ছবি আপলোড ত্রুটি:', err)
+      setImageError('ছবি আপলোড করতে সমস্যা হয়েছে')
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
   const handleSave = async () => {
     setError('')
     if (!name.trim()) {
@@ -117,6 +156,7 @@ export default function ServiceFormModal({
         price,
         category: category.trim(),
         is_active: isActive,
+        image_url: imageUrl || null,
         urgent_fee_type: urgentEnabled ? urgentFeeType : null,
         urgent_fee_value: urgentEnabled ? urgentFeeValue : null,
         urgent_delivery_hours: urgentEnabled ? urgentDeliveryHours : null,
@@ -213,6 +253,43 @@ export default function ServiceFormModal({
               placeholder="সংক্ষিপ্ত বিবরণ"
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm font-semibold mb-2">সার্ভিসের ছবি (ঐচ্ছিক)</label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 rounded-lg border border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {imageUploading ? (
+                  <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                ) : imageUrl ? (
+                  <img src={imageUrl} alt="সার্ভিসের ছবি" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-gray-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleImageUpload(file)
+                  }}
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-600 file:font-semibold hover:file:bg-indigo-100"
+                />
+                <p className="text-xs text-gray-400 mt-1">না দিলে কার্ডে ডিফল্ট আইকন দেখাবে। সর্বোচ্চ ৫MB।</p>
+                {imageError && <p className="text-xs text-red-500 mt-1">{imageError}</p>}
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl('')}
+                    className="text-xs text-red-500 hover:text-red-700 mt-1"
+                  >
+                    ছবি সরিয়ে দিন
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -383,10 +460,10 @@ export default function ServiceFormModal({
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || imageUploading}
             className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
           >
-            {saving ? 'সেভ হচ্ছে...' : 'সেভ করুন'}
+            {saving ? 'সেভ হচ্ছে...' : imageUploading ? 'ছবি আপলোড হচ্ছে...' : 'সেভ করুন'}
           </button>
           <button
             onClick={onClose}
