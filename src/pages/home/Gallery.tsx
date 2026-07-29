@@ -1,17 +1,46 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, ZoomIn } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 import shopFront from '../../assets/gallery/shop-front.jpg'
 import shopPanel from '../../assets/gallery/shop-panel.jpg'
 import shopDesk from '../../assets/gallery/shop-desk.jpg'
 
-const photos = [
+type Photo = { src: string; alt: string }
+
+const defaultPhotos: Photo[] = [
   { src: shopFront, alt: 'নিউ প্রিন্টার্স-এর সাইনবোর্ড ও সার্ভিস তালিকা' },
   { src: shopPanel, alt: 'দোকানের সার্ভিস প্যানেল ও প্রিন্টিং সামগ্রী' },
   { src: shopDesk, alt: 'ডিজিটাল সার্ভিস ডেস্ক' },
 ]
 
 export default function Gallery() {
+  const [photos, setPhotos] = useState<Photo[]>(defaultPhotos)
   const [active, setActive] = useState<number | null>(null)
+
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('gallery_photos')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          setPhotos(
+            data.map((p: any) => ({ src: p.image_url, alt: p.alt_text || 'গ্যালারি ছবি' }))
+          )
+        }
+      } catch (err) {
+        console.error('গ্যালারি ছবি লোড ত্রুটি:', err)
+        // ত্রুটি হলে ডিফল্ট ছবি দেখানো হবে
+      }
+    }
+
+    fetchPhotos()
+  }, [])
 
   return (
     <section className="py-20 px-4 bg-paper">

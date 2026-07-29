@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message } from '../lib/supabase'
-import { Package, Layers, Users, Ticket, Award, MessageSquare } from 'lucide-react'
+import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto } from '../lib/supabase'
+import { Package, Layers, Users, Ticket, Award, MessageSquare, Images } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
@@ -9,12 +9,14 @@ import StaffTab from '../admin/StaffTab'
 import CouponsTab from '../admin/CouponsTab'
 import PerformanceTab from '../admin/PerformanceTab'
 import MessagesTab from '../admin/MessagesTab'
+import GalleryTab from '../admin/GalleryTab'
 import StaffProfileEditModal from '../admin/StaffProfileEditModal'
 import CouponFormModal from '../admin/CouponFormModal'
 import ServiceFormModal from '../admin/ServiceFormModal'
+import GalleryFormModal from '../admin/GalleryFormModal'
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery'>('orders')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -23,6 +25,10 @@ export default function AdminDashboard({ user }: { user: any }) {
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [performance, setPerformance] = useState<StaffPerformance[]>([])
   const [messages, setMessages] = useState<Message[]>([])
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([])
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [showGalleryModal, setShowGalleryModal] = useState(false)
+  const [editingGalleryPhoto, setEditingGalleryPhoto] = useState<GalleryPhoto | null>(null)
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
   const [loading, setLoading] = useState(true)
@@ -81,6 +87,9 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
     if (activeTab === 'performance') {
       fetchPerformance()
+    }
+    if (activeTab === 'gallery') {
+      fetchGalleryPhotos()
     }
   }, [activeTab])
 
@@ -328,6 +337,52 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
   }
 
+  const fetchGalleryPhotos = async () => {
+    setGalleryLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('gallery_photos')
+        .select('*')
+        .order('display_order', { ascending: true })
+
+      if (error) throw error
+      setGalleryPhotos(data || [])
+    } catch (error) {
+      console.error('গ্যালারি লোড ত্রুটি:', error)
+    } finally {
+      setGalleryLoading(false)
+    }
+  }
+
+  const toggleGalleryPhotoActive = async (photo: GalleryPhoto) => {
+    try {
+      const { error } = await supabase
+        .from('gallery_photos')
+        .update({ is_active: !photo.is_active })
+        .eq('id', photo.id)
+
+      if (error) throw error
+      fetchGalleryPhotos()
+    } catch (error) {
+      console.error('গ্যালারি ছবি স্ট্যাটাস আপডেট ত্রুটি:', error)
+      alert('ছবির স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
+    }
+  }
+
+  const deleteGalleryPhoto = async (photo: GalleryPhoto) => {
+    const confirmed = window.confirm('এই ছবিটি স্থায়ীভাবে মুছে ফেলতে চান?')
+    if (!confirmed) return
+
+    try {
+      const { error } = await supabase.from('gallery_photos').delete().eq('id', photo.id)
+      if (error) throw error
+      fetchGalleryPhotos()
+    } catch (error) {
+      console.error('গ্যালারি ছবি ডিলিট ত্রুটি:', error)
+      alert('ছবি মুছতে সমস্যা হয়েছে')
+    }
+  }
+
   const isCouponExpired = (coupon: Coupon) => {
     return !!coupon.valid_until && new Date(coupon.valid_until) < new Date()
   }
@@ -547,6 +602,9 @@ export default function AdminDashboard({ user }: { user: any }) {
     assignStaff, autoAssignStaff, toggleSelectOrder, toggleSelectAllOrders,
     clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
     toggleRole, getServiceName, getStatusColor, getStatusLabel,
+    galleryPhotos, setGalleryPhotos, galleryLoading, showGalleryModal,
+    setShowGalleryModal, editingGalleryPhoto, setEditingGalleryPhoto,
+    fetchGalleryPhotos, toggleGalleryPhotoActive, deleteGalleryPhoto,
   }
 
   return (
@@ -630,6 +688,17 @@ export default function AdminDashboard({ user }: { user: any }) {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'gallery'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Images size={18} />
+            গ্যালারি ম্যানেজমেন্ট
+          </button>
         </div>
 
         {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
@@ -638,6 +707,7 @@ export default function AdminDashboard({ user }: { user: any }) {
         {activeTab === 'coupons' && <CouponsTab ctx={ctx} />}
         {activeTab === 'performance' && <PerformanceTab ctx={ctx} />}
         {activeTab === 'messages' && <MessagesTab ctx={ctx} />}
+        {activeTab === 'gallery' && <GalleryTab ctx={ctx} />}
       </div>
 
       {editingProfile && (
@@ -671,6 +741,17 @@ export default function AdminDashboard({ user }: { user: any }) {
             setEditingService(null)
           }}
           onSaved={fetchData}
+        />
+      )}
+
+      {showGalleryModal && (
+        <GalleryFormModal
+          photo={editingGalleryPhoto}
+          onClose={() => {
+            setShowGalleryModal(false)
+            setEditingGalleryPhoto(null)
+          }}
+          onSaved={fetchGalleryPhotos}
         />
       )}
     </div>
