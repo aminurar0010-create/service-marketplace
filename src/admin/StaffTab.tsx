@@ -46,7 +46,7 @@ export default function StaffTab({ ctx }: { ctx: any }) {
                         </td>
                       </tr>
                     ) : (
-                      profiles.map((p) => (
+                      profiles.map((p: any) => (
                         <tr key={p.id} className="border-b border-gray-200 hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-semibold">
                             {p.full_name || '(নাম নেই)'}
