@@ -81,7 +81,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                       className="px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                     >
                       <option value="">স্টাফ নির্বাচন করুন</option>
-                      {staffList.map((s) => (
+                      {staffList.map((s: any) => (
                         <option key={s.id} value={s.id}>
                           {s.full_name || 'নামহীন স্টাফ'}
                         </option>
@@ -168,7 +168,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                         </td>
                       </tr>
                     ) : (
-                      orders.map((order) => (
+                      orders.map((order: any) => (
                         <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
                           <td className="px-4 py-4">
                             <input
@@ -216,7 +216,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                                 className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none min-w-[130px]"
                               >
                                 <option value="">অনির্ধারিত</option>
-                                {staffList.map((s) => (
+                                {staffList.map((s: any) => (
                                   <option key={s.id} value={s.id}>
                                     {s.full_name || 'নামহীন স্টাফ'}
                                   </option>
