@@ -18,10 +18,10 @@ export default function MessagesTab({ ctx }: { ctx: any }) {
                 {staffList.length === 0 ? (
                   <p className="p-6 text-center text-sm text-gray-500">কোনো স্টাফ পাওয়া যায়নি</p>
                 ) : (
-                  staffList.map((staff) => {
+                  staffList.map((staff: any) => {
                     const unread = getUnreadCount(staff.id)
                     const staffMessages = messages.filter(
-                      (m) => m.sender_id === staff.id || m.receiver_id === staff.id
+                      (m: any) => m.sender_id === staff.id || m.receiver_id === staff.id
                     )
                     const lastMessage = staffMessages[staffMessages.length - 1]
                     return (
@@ -64,7 +64,7 @@ export default function MessagesTab({ ctx }: { ctx: any }) {
                   <>
                     <div className="px-6 py-4 border-b border-gray-200">
                       <p className="font-bold">
-                        {staffList.find((s) => s.id === selectedStaffId)?.full_name || 'নামহীন স্টাফ'}
+                        {staffList.find((s: any) => s.id === selectedStaffId)?.full_name || 'নামহীন স্টাফ'}
                       </p>
                     </div>
 
@@ -74,11 +74,11 @@ export default function MessagesTab({ ctx }: { ctx: any }) {
                       ) : (
                         messages
                           .filter(
-                            (m) =>
+                            (m: any) =>
                               (m.sender_id === user.id && m.receiver_id === selectedStaffId) ||
                               (m.sender_id === selectedStaffId && m.receiver_id === user.id)
                           )
-                          .map((m) => (
+                          .map((m: any) => (
                             <div
                               key={m.id}
                               className={`flex ${m.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
