@@ -43,7 +43,7 @@ export default function PerformanceTab({ ctx }: { ctx: any }) {
                         </td>
                       </tr>
                     ) : (
-                      performance.map((p) => (
+                      performance.map((p: any) => (
                         <tr key={p.staff_id} className="border-b border-gray-200 hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-semibold">{p.full_name || 'নামহীন স্টাফ'}</td>
                           <td className="px-6 py-4 text-sm">
@@ -61,7 +61,7 @@ export default function PerformanceTab({ ctx }: { ctx: any }) {
                           <td className="px-6 py-4">
                             <button
                               onClick={() => {
-                                const staffProfile = profiles.find((pr) => pr.id === p.staff_id) || staffList.find((pr) => pr.id === p.staff_id)
+                                const staffProfile = profiles.find((pr: any) => pr.id === p.staff_id) || staffList.find((pr: any) => pr.id === p.staff_id)
                                 if (staffProfile) {
                                   setEditingProfile(staffProfile)
                                 } else {
