@@ -20,7 +20,27 @@ export interface Service {
   category: string
   is_active: boolean
   estimated_hours?: number
+  urgent_fee_type?: 'fixed' | 'percentage' | null
+  urgent_fee_value?: number | null
+  urgent_delivery_hours?: number | null
   created_at: string
+}
+
+export interface ServiceCustomField {
+  id: string
+  service_id: string
+  field_label: string
+  field_type: 'text' | 'textarea' | 'number' | 'select' | 'checkbox'
+  options?: string[] | null
+  is_required: boolean
+  display_order: number
+  created_at: string
+}
+
+export interface CustomFieldResponse {
+  field_id: string
+  label: string
+  value: string
 }
 
 export interface Order {
@@ -38,6 +58,9 @@ export interface Order {
   coupon_code?: string | null
   discount_amount?: number
   commission_amount?: number
+  is_urgent?: boolean
+  urgent_fee?: number
+  custom_field_responses?: CustomFieldResponse[]
   deadline_at?: string | null
   assigned_staff_id?: string
   created_at: string
@@ -75,6 +98,7 @@ export interface CreateOrderResult {
   message?: string
   tracking_id?: string
   discount_amount?: number
+  urgent_fee?: number
   final_amount?: number
 }
 
