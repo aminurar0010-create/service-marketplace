@@ -44,7 +44,7 @@ export default function ServicesTab({ ctx }: { ctx: any }) {
                       </td>
                     </tr>
                   ) : (
-                    services.map((s) => (
+                    services.map((s: any) => (
                       <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm">
                           <p className="font-semibold">{s.name}</p>
