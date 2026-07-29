@@ -3,6 +3,36 @@ import { supabase, Service } from '../lib/supabase'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Zap, Award, Clock } from 'lucide-react'
 
+// সার্ভিসের নাম অনুযায়ী ইমোজি বাছাই করার ফাংশন
+const getServiceEmoji = (name: string) => {
+  const emojiMap: { [key: string]: string } = {
+    // Digital Agency & AI Solutions
+    'ওয়েব ডেভেলপমেন্ট': '💻',
+    'ডিজিটাল মার্কেটিং': '📢',
+    'গ্রাফিক্স ডিজাইন': '🎨',
+    'এআই অটোমেশন': '🤖',
+
+    // E-Services & Online Work
+    'এনআইডি সংশোধন': '🪪',
+    'ভাড়াটিয়া আবেদন সহায়তা': '🏠',
+    'জন্ম নিবন্ধন সনদ': '📋',
+    'ট্রেড লাইসেন্স সার্টিফিকেট': '📄',
+    'পাসপোর্ট আবেদন/রিনিউ': '🛂',
+    'পাসপোর্ট রিনিউ': '🛂',
+    'পুলিশ ক্লিয়ারেন্স সার্টিফিকেট': '👮',
+    'মিউটেশন (নামজারি)': '📜',
+
+    // Printing & Branding
+    'আর্টিস্ট কার্ড': '🎴',
+    'কাস্টম টি শার্ট': '👕',
+    'ডিজিটাল কার্ড': '💳',
+    'মগ প্রিন্টিং': '☕',
+    'লোগো ডিজাইন': '🖼️',
+    'সাইনবোর্ড': '🪧',
+  }
+  return emojiMap[name] || '🔧'
+}
+
 export default function Home() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,7 +150,7 @@ export default function Home() {
                     {groupedServices[categoryName].map((service) => (
                       <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
                         <div className="bg-gradient-to-r from-indigo-500 to-blue-600 h-32 flex items-center justify-center">
-                          <div className="text-white text-4xl font-bold">{service.name.charAt(0)}</div>
+                          <div className="text-5xl">{getServiceEmoji(service.name)}</div>
                         </div>
                         <div className="p-6">
                           <h3 className="text-xl font-bold mb-2">{service.name}</h3>
