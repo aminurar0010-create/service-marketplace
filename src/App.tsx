@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, Profile } from './lib/supabase'
 import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 
 // Pages
 import Home from './pages/Home'
@@ -44,10 +45,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-paper">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">লোড করছি...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-ink-600 mx-auto mb-4"></div>
+          <p className="text-charcoal/60 text-lg">লোড করছি...</p>
         </div>
       </div>
     )
@@ -58,7 +59,7 @@ export default function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-paper">
         <Navbar user={user} profile={profile} />
         <Routes>
           {/* জনসাধারণের রুট */}
@@ -113,6 +114,7 @@ export default function App() {
           {/* ৪০৪ */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        <Footer />
       </div>
     </Router>
   )

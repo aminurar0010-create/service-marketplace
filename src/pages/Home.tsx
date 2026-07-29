@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import { supabase, Service } from '../lib/supabase'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Zap, Award, Clock } from 'lucide-react'
+import Hero from './home/Hero'
+import About from './home/About'
+import DigitalServices from './home/DigitalServices'
+import WhyChooseUs from './home/WhyChooseUs'
+import Gallery from './home/Gallery'
+import Contact from './home/Contact'
 
 // সার্ভিসের নাম অনুযায়ী ইমোজি বাছাই করার ফাংশন
 const getServiceEmoji = (name: string) => {
   const emojiMap: { [key: string]: string } = {
-    // Digital Agency & AI Solutions
     'ওয়েব ডেভেলপমেন্ট': '💻',
     'ডিজিটাল মার্কেটিং': '📢',
     'গ্রাফিক্স ডিজাইন': '🎨',
     'এআই অটোমেশন': '🤖',
-
-    // E-Services & Online Work
     'এনআইডি সংশোধন': '🪪',
     'ভাড়াটিয়া আবেদন সহায়তা': '🏠',
     'জন্ম নিবন্ধন সনদ': '📋',
@@ -21,8 +23,6 @@ const getServiceEmoji = (name: string) => {
     'পাসপোর্ট রিনিউ': '🛂',
     'পুলিশ ক্লিয়ারেন্স সার্টিফিকেট': '👮',
     'মিউটেশন (নামজারি)': '📜',
-
-    // Printing & Branding
     'আর্টিস্ট কার্ড': '🎴',
     'কাস্টম টি শার্ট': '👕',
     'ডিজিটাল কার্ড': '💳',
@@ -57,7 +57,6 @@ export default function Home() {
     }
   }
 
-  // category অনুযায়ী services গ্রুপ করা
   const groupedServices = services.reduce((groups: Record<string, Service[]>, service) => {
     const category = service.category || 'অন্যান্য'
     if (!groups[category]) {
@@ -67,105 +66,63 @@ export default function Home() {
     return groups
   }, {})
 
-  // category গুলো alphabetically সাজানো (চাইলে এখানে fixed order ও দেওয়া যাবে)
   const categoryNames = Object.keys(groupedServices).sort()
 
   return (
-    <div className="min-h-screen">
-      {/* হিরো সেকশন */}
-      <div className="bg-gradient-to-br from-indigo-600 to-blue-700 text-white py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl font-bold mb-4">সেবা মার্কেটপ্লেসে স্বাগতম</h1>
-          <p className="text-xl text-indigo-100 mb-8">
-            আপনার সকল প্রয়োজনের জন্য সর্বোত্তম সেবা খুঁজে পান
-          </p>
-          <Link
-            to="/order"
-            className="inline-flex items-center gap-2 bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
-          >
-            <ShoppingCart size={20} />
-            এখনই অর্ডার করুন
-          </Link>
-        </div>
-      </div>
+    <div className="min-h-screen bg-paper">
+      <Hero />
+      <About />
+      <DigitalServices />
 
-      {/* বৈশিষ্ট্য সেকশন */}
-      <div className="py-16 px-4 bg-gray-50">
+      {/* সার্ভিস ক্যাটালগ - ক্যাটাগরি অনুযায়ী গ্রুপকৃত, অর্ডার করার জন্য */}
+      <div className="py-20 px-4 bg-paper">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">কেন আমাদের বেছে নিবেন?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <Zap className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">দ্রুত সেবা</h3>
-              <p className="text-gray-600">সর্বোচ্চ মানের সেবা দ্রুত সময়ে পাবেন</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <Award className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">বিশ্বস্ত</h3>
-              <p className="text-gray-600">হাজারো সন্তুষ্ট গ্রাহক আমাদের বিশ্বাস করেন</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <Clock className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">সময়মত ডেলিভারি</h3>
-              <p className="text-gray-600">সময়ের মধ্যে আপনার কাজ শেষ করা হবে</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <ShoppingCart className="w-12 h-12 text-purple-500 mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">সহজ অর্ডার</h3>
-              <p className="text-gray-600">মাত্র কয়েকটি ক্লিকে অর্ডার সম্পন্ন করুন</p>
-            </div>
+          <div className="text-center mb-14">
+            <span className="font-stamp text-xs tracking-widest text-seal">অর্ডার করুন</span>
+            <h2 className="font-display text-3xl font-bold text-ink-700 mt-2">আমাদের সেবাসমূহ</h2>
           </div>
-        </div>
-      </div>
-
-      {/* সার্ভিস ক্যাটালগ - ক্যাটাগরি অনুযায়ী গ্রুপকৃত */}
-      <div className="py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold mb-12">আমাদের সেবাসমূহ</h2>
 
           {loading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="text-gray-500 mt-4">সেবা লোড করছি...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ink-600 mx-auto"></div>
+              <p className="text-charcoal/50 mt-4">সেবা লোড করছি...</p>
             </div>
           ) : services.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <p className="text-gray-500 text-lg">কোনো সেবা পাওয়া যায়নি</p>
+              <p className="text-charcoal/50 text-lg">কোনো সেবা পাওয়া যায়নি</p>
             </div>
           ) : (
             <div className="space-y-16">
               {categoryNames.map((categoryName) => (
                 <div key={categoryName}>
-                  {/* ক্যাটাগরি হেডিং */}
                   <div className="flex items-center gap-4 mb-8">
-                    <h3 className="text-2xl font-bold text-gray-800">{categoryName}</h3>
-                    <div className="flex-1 h-px bg-gray-200"></div>
-                    <span className="text-sm text-gray-400">
+                    <h3 className="text-2xl font-bold text-charcoal">{categoryName}</h3>
+                    <div className="flex-1 h-px bg-sage"></div>
+                    <span className="text-sm text-charcoal/40">
                       {groupedServices[categoryName].length} টি সেবা
                     </span>
                   </div>
 
-                  {/* এই ক্যাটাগরির সার্ভিস কার্ডগুলো */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {groupedServices[categoryName].map((service) => (
-                      <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
-                        <div className="bg-gradient-to-r from-indigo-500 to-blue-600 h-32 flex items-center justify-center">
+                      <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition doc-frame">
+                        <div className="bg-gradient-to-r from-ink-600 to-ink-700 h-32 flex items-center justify-center">
                           <div className="text-5xl">{getServiceEmoji(service.name)}</div>
                         </div>
                         <div className="p-6">
-                          <h3 className="text-xl font-bold mb-2">{service.name}</h3>
-                          <p className="text-gray-600 mb-4">{service.description}</p>
+                          <h3 className="text-xl font-bold mb-2 text-charcoal">{service.name}</h3>
+                          <p className="text-charcoal/60 mb-4">{service.description}</p>
                           <div className="flex justify-between items-center mb-4">
-                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
+                            <span className="bg-ink-50 text-ink-700 px-3 py-1 rounded-full text-sm">
                               {service.category}
                             </span>
-                            <span className="text-2xl font-bold text-indigo-600">
+                            <span className="text-2xl font-bold text-ink-600 font-stamp">
                               ৳{service.price}
                             </span>
                           </div>
                           <Link
                             to={`/order?service=${service.id}`}
-                            className="w-full block text-center bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
+                            className="w-full block text-center bg-ink-600 text-white py-2 rounded-lg hover:bg-ink-700 transition font-semibold"
                           >
                             অর্ডার করুন
                           </Link>
@@ -180,16 +137,20 @@ export default function Home() {
         </div>
       </div>
 
+      <WhyChooseUs />
+      <Gallery />
+      <Contact />
+
       {/* কল টু এক্শন */}
-      <div className="bg-indigo-600 text-white py-12 px-4">
+      <div className="bg-seal text-white py-12 px-4">
         <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">আপনার অর্ডার এখনই শুরু করুন</h2>
-          <p className="text-indigo-100 mb-6 text-lg">
-            বিশেষ ছাড় এবং অফার পেতে আজই অর্ডার করুন
+          <h2 className="font-display text-3xl font-bold mb-4">আপনার অর্ডার এখনই শুরু করুন</h2>
+          <p className="text-white/85 mb-6 text-lg">
+            দোকানে না এসেই অনলাইনে অর্ডার দিয়ে রাখুন
           </p>
           <Link
             to="/order"
-            className="inline-block bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
+            className="inline-block bg-white text-seal px-8 py-3 rounded-lg font-semibold hover:bg-paper transition"
           >
             এখনই শুরু করুন
           </Link>

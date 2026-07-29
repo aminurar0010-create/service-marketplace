@@ -1,13 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 * {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Noto Sans Bengali', 'Noto Serif Bengali', sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Noto Serif Bengali', serif;
+}
+
+.font-stamp {
+  font-family: 'Space Mono', monospace;
 }
 
 body {
-  @apply bg-gray-50;
+  @apply bg-paper text-charcoal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* perforated / ticket-edge divider used between sections */
+.perforated-edge {
+  background-image: radial-gradient(circle, #F7F3E8 3px, transparent 3.5px);
+  background-size: 18px 18px;
+  background-position: center;
+  height: 12px;
+}
+
+/* dashed document-corner frame for photos */
+.doc-frame {
+  position: relative;
+}
+.doc-frame::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1.5px dashed rgba(192, 138, 40, 0.55);
+  border-radius: 0.5rem;
+  pointer-events: none;
 }
