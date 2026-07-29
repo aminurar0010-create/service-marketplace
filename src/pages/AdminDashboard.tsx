@@ -1893,7 +1893,7 @@ function ServiceFormModal({
   const [urgentDeliveryHours, setUrgentDeliveryHours] = useState(service?.urgent_delivery_hours ?? 24)
 
   // কাস্টম রিকোয়ারমেন্ট ফিল্ড সংক্রান্ত স্টেট
-  const [customFields, setCustomFields] = useState
+  const [customFields, setCustomFields] = useState<
     { id?: string; field_label: string; field_type: string; options: string; is_required: boolean }[]
   >([])
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
