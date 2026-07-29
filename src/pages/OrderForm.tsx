@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase, Service, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
+import { supabase, Service, ServiceCustomField, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Upload, CheckCircle, Tag, X } from 'lucide-react'
+import { Upload, CheckCircle, Tag, X, Zap } from 'lucide-react'
 
 export default function OrderForm() {
   const [searchParams] = useSearchParams()
@@ -31,6 +31,14 @@ export default function OrderForm() {
   } | null>(null)
   const [couponMessage, setCouponMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
+  // জরুরি (urgent) ডেলিভারি সংক্রান্ত স্টেট
+  const [isUrgent, setIsUrgent] = useState(false)
+
+  // কাস্টম রিকোয়ারমেন্ট ফিল্ড সংক্রান্ত স্টেট
+  const [customFields, setCustomFields] = useState<ServiceCustomField[]>([])
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({})
+  const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
+
   useEffect(() => {
     fetchServices()
   }, [])
@@ -51,6 +59,46 @@ export default function OrderForm() {
 
   const selectedService = services.find((s) => s.id === formData.service_id)
   const totalAmount = selectedService?.price || 0
+
+  // এই সার্ভিসের জন্য urgent fee এর হিসাব (দেখানোর জন্য, চূড়ান্ত হিসাব সার্ভারে হবে)
+  const estimatedUrgentFee = (() => {
+    if (!isUrgent || !selectedService?.urgent_fee_type || !selectedService?.urgent_fee_value) return 0
+    if (selectedService.urgent_fee_type === 'percentage') {
+      return Math.round((totalAmount * selectedService.urgent_fee_value) / 100)
+    }
+    return selectedService.urgent_fee_value
+  })()
+
+  // সার্ভিস বদলালে সেই সার্ভিসের custom fields লোড করুন
+  useEffect(() => {
+    setIsUrgent(false)
+    setCustomFieldValues({})
+    if (!formData.service_id) {
+      setCustomFields([])
+      return
+    }
+    fetchCustomFields(formData.service_id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.service_id])
+
+  const fetchCustomFields = async (serviceId: string) => {
+    setCustomFieldsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('service_custom_fields')
+        .select('*')
+        .eq('service_id', serviceId)
+        .order('display_order', { ascending: true })
+
+      if (error) throw error
+      setCustomFields(data || [])
+    } catch (error) {
+      console.error('কাস্টম ফিল্ড লোড ত্রুটি:', error)
+      setCustomFields([])
+    } finally {
+      setCustomFieldsLoading(false)
+    }
+  }
 
   // সার্ভিস বা ফোন নম্বর বদলালে আগের প্রয়োগ করা কুপন বাতিল হয়ে যাবে
   useEffect(() => {
@@ -136,6 +184,14 @@ export default function OrderForm() {
       return
     }
 
+    // আবশ্যিক (required) কাস্টম ফিল্ড পূরণ হয়েছে কিনা যাচাই করুন
+    for (const field of customFields) {
+      if (field.is_required && !customFieldValues[field.id]?.trim()) {
+        alert(`দয়া করে "${field.field_label}" পূরণ করুন`)
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
@@ -156,6 +212,15 @@ export default function OrderForm() {
         }
       }
 
+      // কাস্টম ফিল্ডের উত্তরগুলো গুছিয়ে নিন
+      const customFieldResponses = customFields
+        .filter((field) => customFieldValues[field.id]?.trim())
+        .map((field) => ({
+          field_id: field.id,
+          label: field.field_label,
+          value: customFieldValues[field.id],
+        }))
+
       // অর্ডার তৈরি করুন (RLS bypass করা SECURITY DEFINER ফাংশন দিয়ে)
       const { data, error } = await supabase.rpc('create_order', {
         p_service_id: formData.service_id,
@@ -166,6 +231,8 @@ export default function OrderForm() {
         p_documents: uploadedDocs,
         p_total_amount: totalAmount,
         p_coupon_code: appliedCoupon?.code || null,
+        p_is_urgent: isUrgent,
+        p_custom_field_responses: customFieldResponses,
       })
 
       if (error) throw error
@@ -192,6 +259,8 @@ export default function OrderForm() {
       setAppliedCoupon(null)
       setCouponInput('')
       setCouponMessage(null)
+      setIsUrgent(false)
+      setCustomFieldValues({})
     } catch (error) {
       console.error('অর্ডার সৃষ্টি ত্রুটি:', error)
       alert('অর্ডার তৈরি করতে ব্যর্থ। দয়া করে পরে চেষ্টা করুন।')
@@ -298,6 +367,95 @@ export default function OrderForm() {
             placeholder="আপনার ইমেইল"
           />
         </div>
+
+        {/* জরুরি (urgent) ডেলিভারি অপশন — শুধু যেসব সার্ভিসে urgent fee সেট করা আছে সেখানে দেখাবে */}
+        {selectedService?.urgent_fee_type && selectedService?.urgent_fee_value ? (
+          <div className="mb-6">
+            <label className="flex items-start gap-3 cursor-pointer bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+              <input
+                type="checkbox"
+                checked={isUrgent}
+                onChange={(e) => setIsUrgent(e.target.checked)}
+                className="w-4 h-4 mt-1"
+              />
+              <span>
+                <span className="flex items-center gap-1 font-semibold text-orange-700">
+                  <Zap className="w-4 h-4" />
+                  জরুরি (Urgent) ডেলিভারি
+                  {selectedService.urgent_delivery_hours ? ` — ${selectedService.urgent_delivery_hours} ঘণ্টার মধ্যে` : ''}
+                </span>
+                <span className="block text-sm text-orange-600 mt-1">
+                  অতিরিক্ত ফি: {selectedService.urgent_fee_type === 'percentage'
+                    ? `${selectedService.urgent_fee_value}%`
+                    : `৳${selectedService.urgent_fee_value}`}
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        {/* কাস্টম রিকোয়ারমেন্ট ফিল্ড — সার্ভিস ভিত্তিক ডায়নামিক ফর্ম */}
+        {!customFieldsLoading && customFields.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <p className="text-sm font-semibold text-gray-700">অতিরিক্ত তথ্য</p>
+            {customFields.map((field) => (
+              <div key={field.id}>
+                <label className="block text-sm font-semibold mb-2">
+                  {field.field_label} {field.is_required && '*'}
+                </label>
+                {field.field_type === 'textarea' ? (
+                  <textarea
+                    value={customFieldValues[field.id] || ''}
+                    onChange={(e) =>
+                      setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    rows={3}
+                  />
+                ) : field.field_type === 'select' ? (
+                  <select
+                    value={customFieldValues[field.id] || ''}
+                    onChange={(e) =>
+                      setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">-- নির্বাচন করুন --</option>
+                    {(field.options || []).map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.field_type === 'checkbox' ? (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={customFieldValues[field.id] === 'true'}
+                      onChange={(e) =>
+                        setCustomFieldValues((prev) => ({
+                          ...prev,
+                          [field.id]: e.target.checked ? 'true' : '',
+                        }))
+                      }
+                      className="w-4 h-4"
+                    />
+                    <span>হ্যাঁ</span>
+                  </label>
+                ) : (
+                  <input
+                    type={field.field_type === 'number' ? 'number' : 'text'}
+                    value={customFieldValues[field.id] || ''}
+                    onChange={(e) =>
+                      setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* পেমেন্ট পদ্ধতি */}
         <div className="mb-6">
@@ -421,10 +579,16 @@ export default function OrderForm() {
                 <span className="font-semibold">-৳{appliedCoupon.discount_amount}</span>
               </div>
             )}
+            {isUrgent && estimatedUrgentFee > 0 && (
+              <div className="flex justify-between items-center text-orange-600">
+                <span>জরুরি ফি:</span>
+                <span className="font-semibold">+৳{estimatedUrgentFee}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center border-t border-gray-200 pt-2">
-              <span className="font-semibold">মোট পরিমাণ:</span>
+              <span className="font-semibold">মোট পরিমাণ (আনুমানিক):</span>
               <span className="text-2xl font-bold text-indigo-600">
-                ৳{appliedCoupon ? appliedCoupon.final_amount : totalAmount}
+                ৳{(appliedCoupon ? appliedCoupon.final_amount : totalAmount) + (isUrgent ? estimatedUrgentFee : 0)}
               </span>
             </div>
           </div>
