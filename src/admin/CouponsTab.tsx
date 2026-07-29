@@ -54,7 +54,7 @@ export default function CouponsTab({ ctx }: { ctx: any }) {
                         </td>
                       </tr>
                     ) : (
-                      coupons.map((c) => {
+                      coupons.map((c: any) => {
                         const expired = isCouponExpired(c)
                         return (
                           <tr key={c.id} className="border-b border-gray-200 hover:bg-gray-50">
