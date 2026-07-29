@@ -27,6 +27,19 @@ export default function Home() {
     }
   }
 
+  // category অনুযায়ী services গ্রুপ করা
+  const groupedServices = services.reduce((groups: Record<string, Service[]>, service) => {
+    const category = service.category || 'অন্যান্য'
+    if (!groups[category]) {
+      groups[category] = []
+    }
+    groups[category].push(service)
+    return groups
+  }, {})
+
+  // category গুলো alphabetically সাজানো (চাইলে এখানে fixed order ও দেওয়া যাবে)
+  const categoryNames = Object.keys(groupedServices).sort()
+
   return (
     <div className="min-h-screen">
       {/* হিরো সেকশন */}
@@ -75,7 +88,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* সার্ভিস ক্যাটালগ */}
+      {/* সার্ভিস ক্যাটালগ - ক্যাটাগরি অনুযায়ী গ্রুপকৃত */}
       <div className="py-16 px-4">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold mb-12">আমাদের সেবাসমূহ</h2>
@@ -90,29 +103,45 @@ export default function Home() {
               <p className="text-gray-500 text-lg">কোনো সেবা পাওয়া যায়নি</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {services.map((service) => (
-                <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
-                  <div className="bg-gradient-to-r from-indigo-500 to-blue-600 h-32 flex items-center justify-center">
-                    <div className="text-white text-4xl font-bold">{service.name.charAt(0)}</div>
+            <div className="space-y-16">
+              {categoryNames.map((categoryName) => (
+                <div key={categoryName}>
+                  {/* ক্যাটাগরি হেডিং */}
+                  <div className="flex items-center gap-4 mb-8">
+                    <h3 className="text-2xl font-bold text-gray-800">{categoryName}</h3>
+                    <div className="flex-1 h-px bg-gray-200"></div>
+                    <span className="text-sm text-gray-400">
+                      {groupedServices[categoryName].length} টি সেবা
+                    </span>
                   </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold mb-2">{service.name}</h3>
-                    <p className="text-gray-600 mb-4">{service.description}</p>
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-                        {service.category}
-                      </span>
-                      <span className="text-2xl font-bold text-indigo-600">
-                        ৳{service.price}
-                      </span>
-                    </div>
-                    <Link
-                      to={`/order?service=${service.id}`}
-                      className="w-full block text-center bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
-                    >
-                      অর্ডার করুন
-                    </Link>
+
+                  {/* এই ক্যাটাগরির সার্ভিস কার্ডগুলো */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {groupedServices[categoryName].map((service) => (
+                      <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                        <div className="bg-gradient-to-r from-indigo-500 to-blue-600 h-32 flex items-center justify-center">
+                          <div className="text-white text-4xl font-bold">{service.name.charAt(0)}</div>
+                        </div>
+                        <div className="p-6">
+                          <h3 className="text-xl font-bold mb-2">{service.name}</h3>
+                          <p className="text-gray-600 mb-4">{service.description}</p>
+                          <div className="flex justify-between items-center mb-4">
+                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
+                              {service.category}
+                            </span>
+                            <span className="text-2xl font-bold text-indigo-600">
+                              ৳{service.price}
+                            </span>
+                          </div>
+                          <Link
+                            to={`/order?service=${service.id}`}
+                            className="w-full block text-center bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition font-semibold"
+                          >
+                            অর্ডার করুন
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
