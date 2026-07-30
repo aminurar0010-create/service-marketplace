@@ -1,1 +1,47 @@
-
+{
+  "name": "নিউ প্রিন্টার্স — সরকারি কাগজপত্র, প্রিন্টিং ও ডিজিটাল সেবা",
+  "short_name": "নিউ প্রিন্টার্স",
+  "description": "সুন্দলপুর বাজার, মনিরামপুর, যশোর — পাসপোর্ট, জন্ম সনদ, ড্রাইভিং লাইসেন্স থেকে ওয়েবসাইট তৈরি, সব সেবা এক ঠিকানায়।",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F7F3E8",
+  "theme_color": "#1F4D3D",
+  "lang": "bn",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "নতুন অর্ডার",
+      "short_name": "অর্ডার",
+      "url": "/order",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "অর্ডার ট্র্যাক করুন",
+      "short_name": "ট্র্যাকিং",
+      "url": "/tracking",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
