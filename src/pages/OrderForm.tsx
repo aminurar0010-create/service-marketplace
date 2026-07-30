@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, Service, ServiceCustomField, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Upload, CheckCircle, Tag, X, Zap } from 'lucide-react'
+import DeliveryEstimate from '../components/DeliveryEstimate'
 
 export default function OrderForm() {
   const [searchParams] = useSearchParams()
@@ -393,6 +394,15 @@ export default function OrderForm() {
             </label>
           </div>
         ) : null}
+
+        {/* ডেলিভারি টাইম ক্যালকুলেটর — সার্ভিস বাছাই করলে আনুমানিক ডেলিভারি সময় দেখাবে */}
+        {selectedService && (
+          <DeliveryEstimate
+            estimatedHours={selectedService.estimated_hours}
+            isUrgent={isUrgent}
+            urgentHours={selectedService.urgent_delivery_hours}
+          />
+        )}
 
         {/* কাস্টম রিকোয়ারমেন্ট ফিল্ড — সার্ভিস ভিত্তিক ডায়নামিক ফর্ম */}
         {!customFieldsLoading && customFields.length > 0 && (
