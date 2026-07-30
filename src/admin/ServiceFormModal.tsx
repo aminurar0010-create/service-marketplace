@@ -24,6 +24,7 @@ export default function ServiceFormModal({
   const [imageError, setImageError] = useState('')
 
   // জরুরি (urgent) ফি সংক্রান্ত স্টেট
+  const [estimatedHours, setEstimatedHours] = useState(service?.estimated_hours ?? 24)
   const [urgentEnabled, setUrgentEnabled] = useState(!!service?.urgent_fee_type)
   const [urgentFeeType, setUrgentFeeType] = useState<'fixed' | 'percentage'>(
     service?.urgent_fee_type === 'percentage' ? 'percentage' : 'fixed'
@@ -157,6 +158,7 @@ export default function ServiceFormModal({
         category: category.trim(),
         is_active: isActive,
         image_url: imageUrl || null,
+        estimated_hours: estimatedHours > 0 ? estimatedHours : null,
         urgent_fee_type: urgentEnabled ? urgentFeeType : null,
         urgent_fee_value: urgentEnabled ? urgentFeeValue : null,
         urgent_delivery_hours: urgentEnabled ? urgentDeliveryHours : null,
@@ -313,6 +315,19 @@ export default function ServiceFormModal({
               onChange={(e) => setPrice(Number(e.target.value))}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2">সাধারণ ডেলিভারি সময় (ঘণ্টা)</label>
+            <input
+              type="number"
+              min={0}
+              value={estimatedHours}
+              onChange={(e) => setEstimatedHours(Number(e.target.value))}
+              placeholder="যেমন: ২৪"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">গ্রাহককে "আনুমানিক ডেলিভারি" হিসেবে দেখানো হবে</p>
           </div>
 
           <div className="col-span-2">
