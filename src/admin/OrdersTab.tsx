@@ -3,7 +3,16 @@ import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
-  const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, assignStaff, autoAssignStaff, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
+  const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
+
+  const getPaymentColor = (status: string) => {
+    const colors: Record<string, string> = {
+      unpaid: 'bg-gray-100 text-gray-600',
+      paid: 'bg-green-100 text-green-700',
+      refunded: 'bg-orange-100 text-orange-700',
+    }
+    return colors[status] || 'bg-gray-100 text-gray-600'
+  }
 
   return (
           <>
@@ -153,6 +162,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">গ্রাহক</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সেবা</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিমাণ</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পেমেন্ট</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অবস্থা</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ডেডলাইন</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাসাইন করা স্টাফ</th>
@@ -163,7 +173,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={11} className="px-6 py-8 text-center text-gray-500">
                           কোনো অর্ডার পাওয়া যায়নি
                         </td>
                       </tr>
@@ -189,6 +199,18 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                           </td>
                           <td className="px-6 py-4 text-sm">{getServiceName(order.service_id)}</td>
                           <td className="px-6 py-4 text-sm font-semibold">৳{order.total_amount}</td>
+                          <td className="px-6 py-4">
+                            <select
+                              value={order.payment_status}
+                              onChange={(e) => updateOrderPaymentStatus(order.id, e.target.value)}
+                              title="ম্যানুয়াল পেমেন্ট অ্যাপ্রুভাল (ক্যাশ/অফলাইন পেমেন্ট নিশ্চিত করতে ব্যবহার করুন)"
+                              className={`px-2 py-1 rounded-full text-xs font-semibold border-0 outline-none cursor-pointer ${getPaymentColor(order.payment_status)}`}
+                            >
+                              <option value="unpaid">অপরিশোধিত</option>
+                              <option value="paid">পরিশোধিত</option>
+                              <option value="refunded">ফেরত</option>
+                            </select>
+                          </td>
                           <td className="px-6 py-4">
                             <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
                               {getStatusLabel(order.status)}

@@ -134,6 +134,29 @@ export interface Message {
   created_at: string
 }
 
+export interface Review {
+  id: string
+  order_id: string
+  service_id?: string | null
+  customer_name: string
+  rating: number
+  comment?: string | null
+  is_approved: boolean
+  created_at: string
+}
+
+export interface CashTransaction {
+  id: string
+  entry_date: string
+  type: 'income' | 'expense'
+  category: string
+  description?: string | null
+  amount: number
+  order_id?: string | null
+  created_by?: string | null
+  created_at: string
+}
+
 export interface StaffPerformance {
   staff_id: string
   full_name: string

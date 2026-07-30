@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto } from '../lib/supabase'
-import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon } from 'lucide-react'
+import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, Wallet, PieChart } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
@@ -10,13 +10,16 @@ import CouponsTab from '../admin/CouponsTab'
 import PerformanceTab from '../admin/PerformanceTab'
 import MessagesTab from '../admin/MessagesTab'
 import GalleryTab from '../admin/GalleryTab'
+import ReviewsTab from '../admin/ReviewsTab'
+import CashBookTab from '../admin/CashBookTab'
+import ReportsTab from '../admin/ReportsTab'
 import StaffProfileEditModal from '../admin/StaffProfileEditModal'
 import CouponFormModal from '../admin/CouponFormModal'
 import ServiceFormModal from '../admin/ServiceFormModal'
 import GalleryFormModal from '../admin/GalleryFormModal'
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports'>('orders')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -414,17 +417,37 @@ export default function AdminDashboard({ user }: { user: any }) {
   const autoAssignStaff = async (orderId: string) => {
     setAssigningOrderId(orderId)
     try {
-      const { error } = await supabase.rpc('auto_assign_order', {
+      const { data, error } = await supabase.rpc('auto_assign_order', {
         p_order_id: orderId,
       })
 
       if (error) throw error
+
+      if (data && data.success === false) {
+        alert(data.message || 'অটো অ্যাসাইন করা সম্ভব হয়নি')
+      }
+
       fetchData()
     } catch (error) {
       console.error('অটো অ্যাসাইন ত্রুটি:', error)
       alert('অটো অ্যাসাইন করতে সমস্যা হয়েছে')
     } finally {
       setAssigningOrderId(null)
+    }
+  }
+
+  const updateOrderPaymentStatus = async (orderId: string, newPaymentStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ payment_status: newPaymentStatus })
+        .eq('id', orderId)
+
+      if (error) throw error
+      fetchData()
+    } catch (error) {
+      console.error('পেমেন্ট স্ট্যাটাস আপডেট ত্রুটি:', error)
+      alert('পেমেন্ট স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
     }
   }
 
@@ -599,7 +622,7 @@ export default function AdminDashboard({ user }: { user: any }) {
     totalUnreadMessages, selectStaffConversation, sendMessage, fetchPerformance,
     getDeadlineInfo, fetchCoupons, toggleCouponActive, deleteCoupon,
     toggleServiceActive, deleteService, isCouponExpired, updateOrderStatus,
-    assignStaff, autoAssignStaff, toggleSelectOrder, toggleSelectAllOrders,
+    assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders,
     clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
     toggleRole, getServiceName, getStatusColor, getStatusLabel,
     galleryPhotos, setGalleryPhotos, galleryLoading, showGalleryModal,
@@ -699,6 +722,39 @@ export default function AdminDashboard({ user }: { user: any }) {
             <GalleryIcon size={18} />
             গ্যালারি ম্যানেজমেন্ট
           </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'reviews'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Star size={18} />
+            রিভিউ ম্যানেজমেন্ট
+          </button>
+          <button
+            onClick={() => setActiveTab('cashbook')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'cashbook'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Wallet size={18} />
+            ক্যাশ-বুক
+          </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'reports'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <PieChart size={18} />
+            রিপোর্টস
+          </button>
         </div>
 
         {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
@@ -708,6 +764,9 @@ export default function AdminDashboard({ user }: { user: any }) {
         {activeTab === 'performance' && <PerformanceTab ctx={ctx} />}
         {activeTab === 'messages' && <MessagesTab ctx={ctx} />}
         {activeTab === 'gallery' && <GalleryTab ctx={ctx} />}
+        {activeTab === 'reviews' && <ReviewsTab />}
+        {activeTab === 'cashbook' && <CashBookTab />}
+        {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
       </div>
 
       {editingProfile && (

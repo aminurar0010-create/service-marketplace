@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase, Order, Service } from '../lib/supabase'
-import { Search, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { Search, CheckCircle, Clock, AlertCircle, Star } from 'lucide-react'
 
 export default function TrackingStatus() {
   const [trackingId, setTrackingId] = useState('')
@@ -9,6 +9,37 @@ export default function TrackingStatus() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState('')
+
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewResult, setReviewResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  const submitReview = async () => {
+    if (reviewRating < 1) {
+      setReviewResult({ success: false, message: 'দয়া করে একটি রেটিং নির্বাচন করুন' })
+      return
+    }
+    setReviewSubmitting(true)
+    setReviewResult(null)
+    try {
+      const { data, error: rpcError } = await supabase.rpc('submit_review', {
+        p_tracking_id: trackingId,
+        p_rating: reviewRating,
+        p_comment: reviewComment,
+      })
+      if (rpcError) throw rpcError
+      setReviewResult(data)
+      if (data?.success) {
+        setReviewComment('')
+      }
+    } catch (err) {
+      console.error('রিভিউ জমা ত্রুটি:', err)
+      setReviewResult({ success: false, message: 'রিভিউ জমা দিতে সমস্যা হয়েছে, পরে আবার চেষ্টা করুন' })
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -232,6 +263,53 @@ export default function TrackingStatus() {
                   <p>অর্ডার তৈরির তারিখ: {new Date(order.created_at).toLocaleDateString('bn-BD')}</p>
                   <p>শেষ আপডেট: {new Date(order.updated_at).toLocaleDateString('bn-BD')}</p>
                 </div>
+
+                {/* রিভিউ ফর্ম — শুধু সম্পন্ন অর্ডারের জন্য */}
+                {order.status === 'completed' && (
+                  <div className="mt-8 pt-8 border-t border-gray-200">
+                    <h3 className="text-xl font-bold mb-4">আপনার অভিজ্ঞতা শেয়ার করুন</h3>
+                    {reviewResult?.success ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 font-semibold text-center">
+                        {reviewResult.message}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                        <div className="flex justify-center gap-1">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setReviewRating(n)}
+                              className="p-1"
+                            >
+                              <Star
+                                size={32}
+                                className={n <= reviewRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          placeholder="আপনার মতামত লিখুন (ঐচ্ছিক)"
+                          rows={3}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 outline-none"
+                        />
+                        {reviewResult && !reviewResult.success && (
+                          <p className="text-red-600 text-sm text-center">{reviewResult.message}</p>
+                        )}
+                        <button
+                          onClick={submitReview}
+                          disabled={reviewSubmitting}
+                          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+                        >
+                          {reviewSubmitting ? 'জমা হচ্ছে...' : 'রিভিউ জমা দিন'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
           </>
