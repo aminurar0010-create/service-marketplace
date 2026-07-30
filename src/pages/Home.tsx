@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, Service } from '../lib/supabase'
 import { Link } from 'react-router-dom'
 import Hero from './home/Hero'
+import TrustBadges from '../components/TrustBadges'
 import About from './home/About'
 import DigitalServices from './home/DigitalServices'
 import WhyChooseUs from './home/WhyChooseUs'
@@ -71,6 +72,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-paper">
       <Hero />
+      <TrustBadges />
       <About />
       <DigitalServices />
 
