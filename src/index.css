@@ -4,6 +4,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ফেজ ৪ — লাইভ থিম কালার ভ্যারিয়েবল (ডিফল্ট মান, অ্যাডমিন সেটিংস থেকে
+   রানটাইমে ThemeProvider এই ভ্যারিয়েবলগুলো ওভাররাইট করে দেয়)।
+   R G B ফরম্যাটে (স্পেস-সেপারেটেড) — tailwind.config.js -এ
+   rgb(var(--x) / <alpha-value>) হিসেবে ব্যবহৃত হয়। */
+:root {
+  --paper-DEFAULT: 247 243 232;
+  --paper-dark: 239 232 214;
+
+  --ink-50: 234 240 236;
+  --ink-100: 203 218 207;
+  --ink-400: 62 122 92;
+  --ink-600: 31 77 61;
+  --ink-700: 23 59 47;
+  --ink-900: 15 42 33;
+
+  --seal-DEFAULT: 154 43 37;
+  --seal-light: 194 74 63;
+  --seal-dark: 113 31 27;
+
+  --brass-DEFAULT: 192 138 40;
+  --brass-light: 224 179 85;
+  --brass-dark: 143 101 25;
+}
+
 * {
   font-family: 'Noto Sans Bengali', 'Noto Serif Bengali', sans-serif;
 }

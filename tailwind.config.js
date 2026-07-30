@@ -7,35 +7,39 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ফেজ ৪: এই কালারগুলো CSS ভ্যারিয়েবল থেকে আসে (দেখুন src/index.css)
+        // যাতে অ্যাডমিন প্যানেলের "লাইভ থিম কাস্টমাইজেশন" থেকে রঙ বদলালে
+        // পুরো সাইটের bg-ink-600 / text-seal-DEFAULT ইত্যাদি সব ক্লাস
+        // রিয়েল-টাইমে আপডেট হয়ে যায় — কোনো রিবিল্ড দরকার হয় না।
         paper: {
-          DEFAULT: '#F7F3E8',
-          dark: '#EFE8D6',
+          DEFAULT: 'rgb(var(--paper-DEFAULT) / <alpha-value>)',
+          dark: 'rgb(var(--paper-dark) / <alpha-value>)',
         },
         ink: {
-          50: '#EAF0EC',
-          100: '#CBDACF',
-          400: '#3E7A5C',
-          600: '#1F4D3D',
-          700: '#173B2F',
-          900: '#0F2A21',
+          50: 'rgb(var(--ink-50) / <alpha-value>)',
+          100: 'rgb(var(--ink-100) / <alpha-value>)',
+          400: 'rgb(var(--ink-400) / <alpha-value>)',
+          600: 'rgb(var(--ink-600) / <alpha-value>)',
+          700: 'rgb(var(--ink-700) / <alpha-value>)',
+          900: 'rgb(var(--ink-900) / <alpha-value>)',
         },
         seal: {
-          DEFAULT: '#9A2B25',
-          light: '#C24A3F',
-          dark: '#711F1B',
+          DEFAULT: 'rgb(var(--seal-DEFAULT) / <alpha-value>)',
+          light: 'rgb(var(--seal-light) / <alpha-value>)',
+          dark: 'rgb(var(--seal-dark) / <alpha-value>)',
         },
         brass: {
-          DEFAULT: '#C08A28',
-          light: '#E0B355',
-          dark: '#8F6519',
+          DEFAULT: 'rgb(var(--brass-DEFAULT) / <alpha-value>)',
+          light: 'rgb(var(--brass-light) / <alpha-value>)',
+          dark: 'rgb(var(--brass-dark) / <alpha-value>)',
         },
         charcoal: '#21221E',
         sage: '#D8DCC9',
         // legacy alias kept so existing indigo-* classes elsewhere still resolve
         indigo: {
-          50: '#EAF0EC',
-          600: '#1F4D3D',
-          700: '#173B2F',
+          50: 'rgb(var(--ink-50) / <alpha-value>)',
+          600: 'rgb(var(--ink-600) / <alpha-value>)',
+          700: 'rgb(var(--ink-700) / <alpha-value>)',
         },
       },
       fontFamily: {

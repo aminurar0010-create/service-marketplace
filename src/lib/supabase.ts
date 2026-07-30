@@ -168,3 +168,73 @@ export interface StaffPerformance {
   total_revenue_handled: number
   avg_completion_hours: number
 }
+
+export interface SiteSettings {
+  id: number
+  site_name: string
+  color_primary: string
+  color_secondary: string
+  color_accent: string
+  color_background: string
+  retention_completed_days: number
+  retention_cancelled_days: number
+  retention_documents_days: number
+  auto_purge_enabled: boolean
+  last_purge_at?: string | null
+  last_purge_summary?: {
+    documents_cleared: number
+    cancelled_deleted: number
+    completed_flagged: number
+  } | null
+  last_backup_at?: string | null
+  last_backup_by?: string | null
+  updated_at: string
+  updated_by?: string | null
+}
+
+export interface ActivityLog {
+  id: string
+  actor_id?: string | null
+  actor_name?: string | null
+  action: string
+  entity_type?: string | null
+  entity_label?: string | null
+  details?: Record<string, any> | null
+  created_at: string
+}
+
+/**
+ * অ্যাডমিন অ্যাক্টিভিটি লগ — যেকোনো গুরুত্বপূর্ণ অ্যাকশনের পর কল করুন।
+ * ব্যর্থ হলেও মূল অ্যাকশন আটকাবে না (শুধু কনসোলে ত্রুটি দেখাবে)।
+ */
+export async function logActivity(
+  action: string,
+  entityType?: string,
+  entityLabel?: string,
+  details?: Record<string, any>
+) {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const userId = sessionData.session?.user?.id
+    if (!userId) return
+
+    let actorName: string | null = null
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .maybeSingle()
+    actorName = profile?.full_name || null
+
+    await supabase.from('activity_logs').insert({
+      actor_id: userId,
+      actor_name: actorName,
+      action,
+      entity_type: entityType || null,
+      entity_label: entityLabel || null,
+      details: details || null,
+    })
+  } catch (error) {
+    console.error('অ্যাক্টিভিটি লগ সংরক্ষণ ত্রুটি:', error)
+  }
+}

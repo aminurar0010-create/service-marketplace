@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, Service } from '../lib/supabase'
+import { supabase, Service, logActivity } from '../lib/supabase'
 import { Plus, Trash2, X, Image as ImageIcon, Loader2 } from 'lucide-react'
 
 export default function ServiceFormModal({
@@ -208,6 +208,7 @@ export default function ServiceFormModal({
         }
       }
 
+      logActivity(isEditing ? 'সার্ভিস আপডেট করা হয়েছে' : 'নতুন সার্ভিস তৈরি করা হয়েছে', 'service', name.trim())
       onSaved()
       onClose()
     } catch (err: any) {

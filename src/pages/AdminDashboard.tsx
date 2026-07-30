@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto } from '../lib/supabase'
-import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, Wallet, PieChart } from 'lucide-react'
+import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
+import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, Wallet, PieChart, Settings as SettingsIcon } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
@@ -13,13 +13,14 @@ import GalleryTab from '../admin/GalleryTab'
 import ReviewsTab from '../admin/ReviewsTab'
 import CashBookTab from '../admin/CashBookTab'
 import ReportsTab from '../admin/ReportsTab'
+import SettingsTab from '../admin/SettingsTab'
 import StaffProfileEditModal from '../admin/StaffProfileEditModal'
 import CouponFormModal from '../admin/CouponFormModal'
 import ServiceFormModal from '../admin/ServiceFormModal'
 import GalleryFormModal from '../admin/GalleryFormModal'
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings'>('orders')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -290,6 +291,7 @@ export default function AdminDashboard({ user }: { user: any }) {
         .eq('id', coupon.id)
 
       if (error) throw error
+      logActivity(coupon.is_active ? 'কুপন নিষ্ক্রিয় করা হয়েছে' : 'কুপন সক্রিয় করা হয়েছে', 'coupon', coupon.code)
       fetchCoupons()
     } catch (error) {
       console.error('কুপন স্ট্যাটাস আপডেট ত্রুটি:', error)
@@ -304,6 +306,7 @@ export default function AdminDashboard({ user }: { user: any }) {
     try {
       const { error } = await supabase.from('coupons').delete().eq('id', coupon.id)
       if (error) throw error
+      logActivity('কুপন মুছে ফেলা হয়েছে', 'coupon', coupon.code)
       fetchCoupons()
     } catch (error) {
       console.error('কুপন ডিলিট ত্রুটি:', error)
@@ -319,6 +322,7 @@ export default function AdminDashboard({ user }: { user: any }) {
         .eq('id', service.id)
 
       if (error) throw error
+      logActivity(service.is_active ? 'সার্ভিস নিষ্ক্রিয় করা হয়েছে' : 'সার্ভিস সক্রিয় করা হয়েছে', 'service', service.name)
       fetchData()
     } catch (error) {
       console.error('সার্ভিস স্ট্যাটাস আপডেট ত্রুটি:', error)
@@ -333,6 +337,7 @@ export default function AdminDashboard({ user }: { user: any }) {
     try {
       const { error } = await supabase.from('services').delete().eq('id', service.id)
       if (error) throw error
+      logActivity('সার্ভিস মুছে ফেলা হয়েছে', 'service', service.name)
       fetchData()
     } catch (error) {
       console.error('সার্ভিস ডিলিট ত্রুটি:', error)
@@ -365,6 +370,7 @@ export default function AdminDashboard({ user }: { user: any }) {
         .eq('id', photo.id)
 
       if (error) throw error
+      logActivity(photo.is_active ? 'গ্যালারি ছবি নিষ্ক্রিয় করা হয়েছে' : 'গ্যালারি ছবি সক্রিয় করা হয়েছে', 'gallery_photo')
       fetchGalleryPhotos()
     } catch (error) {
       console.error('গ্যালারি ছবি স্ট্যাটাস আপডেট ত্রুটি:', error)
@@ -379,6 +385,7 @@ export default function AdminDashboard({ user }: { user: any }) {
     try {
       const { error } = await supabase.from('gallery_photos').delete().eq('id', photo.id)
       if (error) throw error
+      logActivity('গ্যালারি ছবি মুছে ফেলা হয়েছে', 'gallery_photo')
       fetchGalleryPhotos()
     } catch (error) {
       console.error('গ্যালারি ছবি ডিলিট ত্রুটি:', error)
@@ -392,7 +399,9 @@ export default function AdminDashboard({ user }: { user: any }) {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      const order = orders.find((o) => o.id === orderId)
       await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
+      logActivity(`অর্ডার স্ট্যাটাস পরিবর্তন → ${getStatusLabel(newStatus)}`, 'order', order?.tracking_id)
       fetchData()
     } catch (error) {
       console.error('অর্ডার আপডেট ত্রুটি:', error)
@@ -407,6 +416,9 @@ export default function AdminDashboard({ user }: { user: any }) {
         .eq('id', orderId)
 
       if (error) throw error
+      const order = orders.find((o) => o.id === orderId)
+      const staffName = staffList.find((s) => s.id === staffId)?.full_name
+      logActivity(staffId ? `স্টাফ অ্যাসাইন করা হয়েছে (${staffName || ''})` : 'স্টাফ অ্যাসাইনমেন্ট বাতিল করা হয়েছে', 'order', order?.tracking_id)
       fetchData()
     } catch (error) {
       console.error('স্টাফ অ্যাসাইন ত্রুটি:', error)
@@ -562,6 +574,8 @@ export default function AdminDashboard({ user }: { user: any }) {
         .eq('id', profileId)
 
       if (error) throw error
+      const target = profiles.find((p) => p.id === profileId)
+      logActivity(`রোল পরিবর্তন: "${currentRole}" → "${newRole}"`, 'profile', target?.full_name)
       fetchProfiles()
     } catch (error) {
       console.error('Role আপডেট ত্রুটি:', error)
@@ -755,6 +769,17 @@ export default function AdminDashboard({ user }: { user: any }) {
             <PieChart size={18} />
             রিপোর্টস
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'settings'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <SettingsIcon size={18} />
+            সেটিংস
+          </button>
         </div>
 
         {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
@@ -767,6 +792,7 @@ export default function AdminDashboard({ user }: { user: any }) {
         {activeTab === 'reviews' && <ReviewsTab />}
         {activeTab === 'cashbook' && <CashBookTab />}
         {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
+        {activeTab === 'settings' && <SettingsTab />}
       </div>
 
       {editingProfile && (

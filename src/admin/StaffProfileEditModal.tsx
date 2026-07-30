@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase, Profile } from '../lib/supabase'
+import { supabase, Profile, logActivity } from '../lib/supabase'
 import { X } from 'lucide-react'
 
 export default function StaffProfileEditModal({
@@ -43,6 +43,7 @@ export default function StaffProfileEditModal({
 
       if (error) throw error
 
+      logActivity('স্টাফ প্রোফাইল আপডেট করা হয়েছে', 'profile', profile.full_name)
       onUpdated()
       onClose()
     } catch (error) {

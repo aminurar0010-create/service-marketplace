@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase, Coupon, Service } from '../lib/supabase'
+import { supabase, Coupon, Service, logActivity } from '../lib/supabase'
 import { X } from 'lucide-react'
 
 export default function CouponFormModal({
@@ -87,6 +87,7 @@ export default function CouponFormModal({
         if (insertError) throw insertError
       }
 
+      logActivity(isEditing ? 'কুপন আপডেট করা হয়েছে' : 'নতুন কুপন তৈরি করা হয়েছে', 'coupon', payload.code)
       onSaved()
       onClose()
     } catch (err: any) {

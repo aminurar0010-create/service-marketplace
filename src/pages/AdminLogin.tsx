@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, logActivity } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { LogIn, AlertCircle } from 'lucide-react'
 
@@ -36,6 +36,7 @@ export default function AdminLogin() {
         return
       }
 
+      logActivity('লগইন করেছেন', 'auth', email)
       navigate('/admin/dashboard')
     } catch (err: any) {
       console.error('লগইন ত্রুটি:', err)

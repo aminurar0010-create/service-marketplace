@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase, GalleryPhoto } from '../lib/supabase'
+import { supabase, GalleryPhoto, logActivity } from '../lib/supabase'
 import { X, Image as ImageIcon, Loader2 } from 'lucide-react'
 
 export default function GalleryFormModal({
@@ -83,6 +83,7 @@ export default function GalleryFormModal({
         if (insertError) throw insertError
       }
 
+      logActivity(isEditing ? 'গ্যালারি ছবি আপডেট করা হয়েছে' : 'নতুন গ্যালারি ছবি যোগ করা হয়েছে', 'gallery_photo')
       onSaved()
       onClose()
     } catch (err) {
