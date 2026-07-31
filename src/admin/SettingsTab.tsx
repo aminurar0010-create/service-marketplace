@@ -9,6 +9,7 @@ import {
   Trash2,
   AlertTriangle,
   RefreshCw,
+  BarChart3,
 } from 'lucide-react'
 import { supabase, ActivityLog, logActivity } from '../lib/supabase'
 import { applyTheme, DEFAULT_THEME } from '../lib/theme'
@@ -16,13 +17,14 @@ import { useSiteSettings } from '../lib/ThemeContext'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
-type SubTab = 'theme' | 'activity' | 'backup' | 'retention'
+type SubTab = 'theme' | 'activity' | 'backup' | 'retention' | 'analytics'
 
 export default function SettingsTab() {
   const [subTab, setSubTab] = useState<SubTab>('theme')
 
   const subTabs: { id: SubTab; label: string; icon: any }[] = [
     { id: 'theme', label: 'থিম কাস্টমাইজেশন', icon: Palette },
+    { id: 'analytics', label: 'অ্যানালিটিক্স/পিক্সেল', icon: BarChart3 },
     { id: 'activity', label: 'অ্যাক্টিভিটি লগ', icon: History },
     { id: 'backup', label: 'ডাটাবেস ব্যাকআপ', icon: DatabaseBackup },
     { id: 'retention', label: 'ডেটা রিটেনশন', icon: ShieldCheck },
@@ -46,9 +48,106 @@ export default function SettingsTab() {
       </div>
 
       {subTab === 'theme' && <ThemePanel />}
+      {subTab === 'analytics' && <AnalyticsPanel />}
       {subTab === 'activity' && <ActivityLogPanel />}
       {subTab === 'backup' && <BackupPanel />}
       {subTab === 'retention' && <RetentionPanel />}
+    </div>
+  )
+}
+
+/* ========================================================================
+   ০. অ্যানালিটিক্স/পিক্সেল ইন্টিগ্রেশন — GA4 ও Facebook Pixel ID সেট করা
+   ======================================================================== */
+function AnalyticsPanel() {
+  const { settings, refreshSettings } = useSiteSettings()
+  const [gaId, setGaId] = useState('')
+  const [fbId, setFbId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (settings) {
+      setGaId(settings.ga_measurement_id || '')
+      setFbId(settings.fb_pixel_id || '')
+    }
+  }, [settings])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError('')
+    setSaved(false)
+    try {
+      const { error: updateError } = await supabase
+        .from('site_settings')
+        .update({
+          ga_measurement_id: gaId.trim() || null,
+          fb_pixel_id: fbId.trim() || null,
+          updated_at: new Date().toISOString(),
+          updated_by: (await supabase.auth.getUser()).data.user?.id,
+        })
+        .eq('id', 1)
+
+      if (updateError) throw updateError
+      await logActivity('অ্যানালিটিক্স আইডি আপডেট করা হয়েছে', 'analytics', 'GA4/Facebook Pixel')
+      await refreshSettings()
+      setSaved(true)
+    } catch (err) {
+      console.error('অ্যানালিটিক্স সেভ ত্রুটি:', err)
+      setError('সেভ করা যায়নি। আবার চেষ্টা করুন।')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+      <h2 className="text-lg font-bold text-gray-900 mb-1">অ্যানালিটিক্স/পিক্সেল ইন্টিগ্রেশন</h2>
+      <p className="text-sm text-gray-500 mb-6">
+        এখানে আইডি বসিয়ে সেভ করলেই সাইটে অটোমেটিক্যালি ট্র্যাকিং কোড চালু হয়ে যাবে — কোনো কোড এডিট বা রিডিপ্লয় লাগবে না।
+      </p>
+
+      {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
+      {saved && (
+        <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+          সেভ হয়ে গেছে — সাইটে এখন থেকে ট্র্যাকিং চালু।
+        </div>
+      )}
+
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Google Analytics 4 — Measurement ID</label>
+        <input
+          type="text"
+          value={gaId}
+          onChange={(e) => setGaId(e.target.value)}
+          placeholder="G-XXXXXXXXXX"
+          className="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Google Analytics-এ Admin → Data Streams → ওয়েব স্ট্রিম খুললে এই ID পাবেন (G- দিয়ে শুরু)।
+        </p>
+      </div>
+
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Facebook Pixel ID</label>
+        <input
+          type="text"
+          value={fbId}
+          onChange={(e) => setFbId(e.target.value)}
+          placeholder="123456789012345"
+          className="w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <p className="text-xs text-gray-400 mt-1">Meta Events Manager থেকে পিক্সেল আইডি (শুধু সংখ্যা) কপি করে বসান।</p>
+      </div>
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60"
+      >
+        {saving ? 'সেভ হচ্ছে...' : 'সেভ করুন'}
+      </button>
     </div>
   )
 }
