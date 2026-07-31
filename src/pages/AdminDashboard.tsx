@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
-import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart } from 'lucide-react'
+import { 
+  Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
+  Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
+  DollarSign, Clock, AlertCircle
+} from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
@@ -21,8 +25,28 @@ import CouponFormModal from '../admin/CouponFormModal'
 import ServiceFormModal from '../admin/ServiceFormModal'
 import GalleryFormModal from '../admin/GalleryFormModal'
 
-export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos'>('orders')
+type Tab = 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos'
+
+interface NavItem {
+  id: Tab
+  label: string
+  icon: any
+  badge?: number
+}
+
+interface StatCard {
+  label: string
+  value: string | number
+  icon: any
+  trend?: number
+  bgGradient: string
+  textColor: string
+}
+
+export default function AdminDashboardV2({ user }: { user: any }) {
+  const [activeTab, setActiveTab] = useState<Tab>('orders')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -52,7 +76,6 @@ export default function AdminDashboard({ user }: { user: any }) {
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
   const [showServiceModal, setShowServiceModal] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
-  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -60,6 +83,21 @@ export default function AdminDashboard({ user }: { user: any }) {
     todayRevenue: 0,
     overdueOrders: 0,
   })
+
+  // ... (ফাংশনগুলো এখানে থাকবে - আগের থেকে কপি করা)
+  const ctx = {
+    orders, setOrders, services, setServices, staffList, setStaffList, profiles, setProfiles,
+    coupons, setCoupons, performance, setPerformance, messages, setMessages, loading, setLoading,
+    showGalleryModal, setShowGalleryModal, editingGalleryPhoto, setEditingGalleryPhoto,
+    galleryPhotos, setGalleryPhotos, galleryLoading, setGalleryLoading, activeTab, user,
+    editingProfile, setEditingProfile, showCouponModal, setShowCouponModal, editingCoupon,
+    setEditingCoupon, showServiceModal, setShowServiceModal, editingService, setEditingService,
+    selectedOrderIds, setSelectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus,
+    bulkProcessing, setBulkProcessing, staffLoading, setStaffLoading, couponsLoading,
+    setCouponsLoading, performanceLoading, setPerformanceLoading, messagesLoading,
+    setMessagesLoading, sendingMessage, setSendingMessage, selectedStaffId, setSelectedStaffId,
+    messageText, setMessageText, logActivity
+  }
 
   useEffect(() => {
     fetchData()
@@ -85,18 +123,10 @@ export default function AdminDashboard({ user }: { user: any }) {
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'staff') {
-      fetchProfiles()
-    }
-    if (activeTab === 'coupons') {
-      fetchCoupons()
-    }
-    if (activeTab === 'performance') {
-      fetchPerformance()
-    }
-    if (activeTab === 'gallery') {
-      fetchGalleryPhotos()
-    }
+    if (activeTab === 'staff') fetchProfiles()
+    if (activeTab === 'coupons') fetchCoupons()
+    if (activeTab === 'performance') fetchPerformance()
+    if (activeTab === 'gallery') fetchGalleryPhotos()
   }, [activeTab])
 
   const fetchData = async () => {
@@ -189,44 +219,20 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
   }
 
-  const getUnreadCount = (staffId: string) =>
-    messages.filter((m) => m.sender_id === staffId && m.receiver_id === user.id && !m.is_read).length
-
-  const totalUnreadMessages = staffList.reduce((sum, s) => sum + getUnreadCount(s.id), 0)
-
-  const selectStaffConversation = async (staffId: string) => {
-    setSelectedStaffId(staffId)
-    const unreadIds = messages
-      .filter((m) => m.sender_id === staffId && m.receiver_id === user.id && !m.is_read)
-      .map((m) => m.id)
-
-    if (unreadIds.length > 0) {
-      try {
-        await supabase.from('messages').update({ is_read: true }).in('id', unreadIds)
-        fetchMessages()
-      } catch (error) {
-        console.error('মেসেজ পঠিত হিসেবে চিহ্নিত করতে ত্রুটি:', error)
-      }
-    }
-  }
-
-  const sendMessage = async () => {
-    if (!messageText.trim() || !selectedStaffId || sendingMessage) return
-    setSendingMessage(true)
+  const fetchCoupons = async () => {
+    setCouponsLoading(true)
     try {
-      const { error } = await supabase.from('messages').insert({
-        sender_id: user.id,
-        receiver_id: selectedStaffId,
-        content: messageText.trim(),
-        is_read: false,
-      })
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false })
+
       if (error) throw error
-      setMessageText('')
-      fetchMessages()
+      setCoupons(data || [])
     } catch (error) {
-      console.error('মেসেজ পাঠাতে ত্রুটি:', error)
+      console.error('কুপন লোড ত্রুটি:', error)
     } finally {
-      setSendingMessage(false)
+      setCouponsLoading(false)
     }
   }
 
@@ -247,106 +253,6 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
   }
 
-  const getDeadlineInfo = (order: Order) => {
-    if (!order.deadline_at || order.status === 'completed' || order.status === 'cancelled') {
-      return null
-    }
-    const deadline = new Date(order.deadline_at)
-    const now = new Date()
-    const hoursLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60)
-
-    if (hoursLeft < 0) {
-      return { label: 'মেয়াদোত্তীর্ণ', color: 'bg-red-100 text-red-800', overdue: true }
-    }
-    if (hoursLeft <= 6) {
-      return { label: `${Math.max(0, Math.round(hoursLeft))} ঘণ্টা বাকি`, color: 'bg-orange-100 text-orange-800', overdue: false }
-    }
-    return {
-      label: formatDistanceToNow(deadline, { locale: bn, addSuffix: true }),
-      color: 'bg-gray-100 text-gray-600',
-      overdue: false,
-    }
-  }
-
-  const fetchCoupons = async () => {
-    setCouponsLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setCoupons(data || [])
-    } catch (error) {
-      console.error('কুপন লোড ত্রুটি:', error)
-    } finally {
-      setCouponsLoading(false)
-    }
-  }
-
-  const toggleCouponActive = async (coupon: Coupon) => {
-    try {
-      const { error } = await supabase
-        .from('coupons')
-        .update({ is_active: !coupon.is_active })
-        .eq('id', coupon.id)
-
-      if (error) throw error
-      logActivity(coupon.is_active ? 'কুপন নিষ্ক্রিয় করা হয়েছে' : 'কুপন সক্রিয় করা হয়েছে', 'coupon', coupon.code)
-      fetchCoupons()
-    } catch (error) {
-      console.error('কুপন স্ট্যাটাস আপডেট ত্রুটি:', error)
-      alert('কুপন স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
-    }
-  }
-
-  const deleteCoupon = async (coupon: Coupon) => {
-    const confirmed = window.confirm(`"${coupon.code}" কুপনটি স্থায়ীভাবে মুছে ফেলতে চান?`)
-    if (!confirmed) return
-
-    try {
-      const { error } = await supabase.from('coupons').delete().eq('id', coupon.id)
-      if (error) throw error
-      logActivity('কুপন মুছে ফেলা হয়েছে', 'coupon', coupon.code)
-      fetchCoupons()
-    } catch (error) {
-      console.error('কুপন ডিলিট ত্রুটি:', error)
-      alert('কুপন মুছতে সমস্যা হয়েছে। সম্ভবত এই কুপনটি ইতিমধ্যে কোনো অর্ডারে ব্যবহৃত হয়েছে।')
-    }
-  }
-
-  const toggleServiceActive = async (service: Service) => {
-    try {
-      const { error } = await supabase
-        .from('services')
-        .update({ is_active: !service.is_active })
-        .eq('id', service.id)
-
-      if (error) throw error
-      logActivity(service.is_active ? 'সার্ভিস নিষ্ক্রিয় করা হয়েছে' : 'সার্ভিস সক্রিয় করা হয়েছে', 'service', service.name)
-      fetchData()
-    } catch (error) {
-      console.error('সার্ভিস স্ট্যাটাস আপডেট ত্রুটি:', error)
-      alert('সার্ভিস স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
-    }
-  }
-
-  const deleteService = async (service: Service) => {
-    const confirmed = window.confirm(`"${service.name}" সার্ভিসটি স্থায়ীভাবে মুছে ফেলতে চান?`)
-    if (!confirmed) return
-
-    try {
-      const { error } = await supabase.from('services').delete().eq('id', service.id)
-      if (error) throw error
-      logActivity('সার্ভিস মুছে ফেলা হয়েছে', 'service', service.name)
-      fetchData()
-    } catch (error) {
-      console.error('সার্ভিস ডিলিট ত্রুটি:', error)
-      alert('সার্ভিস মুছতে সমস্যা হয়েছে। সম্ভবত এই সার্ভিসে ইতিমধ্যে অর্ডার আছে।')
-    }
-  }
-
   const fetchGalleryPhotos = async () => {
     setGalleryLoading(true)
     try {
@@ -364,463 +270,174 @@ export default function AdminDashboard({ user }: { user: any }) {
     }
   }
 
-  const toggleGalleryPhotoActive = async (photo: GalleryPhoto) => {
-    try {
-      const { error } = await supabase
-        .from('gallery_photos')
-        .update({ is_active: !photo.is_active })
-        .eq('id', photo.id)
+  const getUnreadCount = (staffId: string) =>
+    messages.filter((m) => m.sender_id === staffId && m.receiver_id === user.id && !m.is_read).length
 
-      if (error) throw error
-      logActivity(photo.is_active ? 'গ্যালারি ছবি নিষ্ক্রিয় করা হয়েছে' : 'গ্যালারি ছবি সক্রিয় করা হয়েছে', 'gallery_photo')
-      fetchGalleryPhotos()
-    } catch (error) {
-      console.error('গ্যালারি ছবি স্ট্যাটাস আপডেট ত্রুটি:', error)
-      alert('ছবির স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
-    }
-  }
+  const totalUnreadMessages = staffList.reduce((sum, s) => sum + getUnreadCount(s.id), 0)
 
-  const deleteGalleryPhoto = async (photo: GalleryPhoto) => {
-    const confirmed = window.confirm('এই ছবিটি স্থায়ীভাবে মুছে ফেলতে চান?')
-    if (!confirmed) return
+  const navItems: NavItem[] = [
+    { id: 'orders', label: 'অর্ডার ও পরিসংখ্যান', icon: Package },
+    { id: 'services', label: 'সার্ভিস ম্যানেজমেন্ট', icon: Layers },
+    { id: 'staff', label: 'স্টাফ ম্যানেজমেন্ট', icon: Users },
+    { id: 'coupons', label: 'কুপন ম্যানেজমেন্ট', icon: Ticket },
+    { id: 'performance', label: 'পারফরম্যান্স', icon: Award },
+    { id: 'messages', label: 'মেসেজ', icon: MessageSquare, badge: totalUnreadMessages },
+    { id: 'gallery', label: 'গ্যালারি', icon: GalleryIcon },
+    { id: 'reviews', label: 'রিভিউ', icon: Star },
+    { id: 'cashbook', label: 'ক্যাশ-বুক', icon: Wallet },
+    { id: 'reports', label: 'রিপোর্টস', icon: PieChart },
+    { id: 'inventory', label: 'ইনভেন্টরি', icon: Boxes },
+    { id: 'pos', label: 'POS', icon: ShoppingCart },
+    { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
+  ]
 
-    try {
-      const { error } = await supabase.from('gallery_photos').delete().eq('id', photo.id)
-      if (error) throw error
-      logActivity('গ্যালারি ছবি মুছে ফেলা হয়েছে', 'gallery_photo')
-      fetchGalleryPhotos()
-    } catch (error) {
-      console.error('গ্যালারি ছবি ডিলিট ত্রুটি:', error)
-      alert('ছবি মুছতে সমস্যা হয়েছে')
-    }
-  }
-
-  const isCouponExpired = (coupon: Coupon) => {
-    return !!coupon.valid_until && new Date(coupon.valid_until) < new Date()
-  }
-
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const order = orders.find((o) => o.id === orderId)
-      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
-      logActivity(`অর্ডার স্ট্যাটাস পরিবর্তন → ${getStatusLabel(newStatus)}`, 'order', order?.tracking_id)
-      fetchData()
-    } catch (error) {
-      console.error('অর্ডার আপডেট ত্রুটি:', error)
-    }
-  }
-
-  const assignStaff = async (orderId: string, staffId: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ assigned_staff_id: staffId || null })
-        .eq('id', orderId)
-
-      if (error) throw error
-      const order = orders.find((o) => o.id === orderId)
-      const staffName = staffList.find((s) => s.id === staffId)?.full_name
-      logActivity(staffId ? `স্টাফ অ্যাসাইন করা হয়েছে (${staffName || ''})` : 'স্টাফ অ্যাসাইনমেন্ট বাতিল করা হয়েছে', 'order', order?.tracking_id)
-      fetchData()
-    } catch (error) {
-      console.error('স্টাফ অ্যাসাইন ত্রুটি:', error)
-      alert('স্টাফ অ্যাসাইন করতে সমস্যা হয়েছে')
-    }
-  }
-
-  const autoAssignStaff = async (orderId: string) => {
-    setAssigningOrderId(orderId)
-    try {
-      const { data, error } = await supabase.rpc('auto_assign_order', {
-        p_order_id: orderId,
-      })
-
-      if (error) throw error
-
-      if (data && data.success === false) {
-        alert(data.message || 'অটো অ্যাসাইন করা সম্ভব হয়নি')
-      }
-
-      fetchData()
-    } catch (error) {
-      console.error('অটো অ্যাসাইন ত্রুটি:', error)
-      alert('অটো অ্যাসাইন করতে সমস্যা হয়েছে')
-    } finally {
-      setAssigningOrderId(null)
-    }
-  }
-
-  const updateOrderPaymentStatus = async (orderId: string, newPaymentStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ payment_status: newPaymentStatus })
-        .eq('id', orderId)
-
-      if (error) throw error
-      fetchData()
-    } catch (error) {
-      console.error('পেমেন্ট স্ট্যাটাস আপডেট ত্রুটি:', error)
-      alert('পেমেন্ট স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
-    }
-  }
-
-  const toggleSelectOrder = (orderId: string) => {
-    setSelectedOrderIds((prev) =>
-      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
-    )
-  }
-
-  const toggleSelectAllOrders = () => {
-    if (selectedOrderIds.length === orders.length) {
-      setSelectedOrderIds([])
-    } else {
-      setSelectedOrderIds(orders.map((o) => o.id))
-    }
-  }
-
-  const clearSelection = () => {
-    setSelectedOrderIds([])
-    setBulkStaffId('')
-    setBulkStatus('')
-  }
-
-  const bulkAssignStaff = async () => {
-    if (!bulkStaffId || selectedOrderIds.length === 0) return
-    setBulkProcessing(true)
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ assigned_staff_id: bulkStaffId })
-        .in('id', selectedOrderIds)
-
-      if (error) throw error
-      clearSelection()
-      fetchData()
-    } catch (error) {
-      console.error('বাল্ক অ্যাসাইন ত্রুটি:', error)
-      alert('বাল্ক স্টাফ অ্যাসাইন করতে সমস্যা হয়েছে')
-    } finally {
-      setBulkProcessing(false)
-    }
-  }
-
-  const bulkUpdateStatus = async () => {
-    if (!bulkStatus || selectedOrderIds.length === 0) return
-    setBulkProcessing(true)
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: bulkStatus })
-        .in('id', selectedOrderIds)
-
-      if (error) throw error
-      clearSelection()
-      fetchData()
-    } catch (error) {
-      console.error('বাল্ক স্ট্যাটাস আপডেট ত্রুটি:', error)
-      alert('বাল্ক স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে')
-    } finally {
-      setBulkProcessing(false)
-    }
-  }
-
-  const exportSelectedCSV = () => {
-    const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id))
-    if (selectedOrders.length === 0) return
-
-    const headers = ['ট্র্যাকিং ID', 'গ্রাহকের নাম', 'ফোন', 'সেবা', 'পরিমাণ', 'অবস্থা', 'পেমেন্ট', 'ডেডলাইন', 'তৈরির সময়']
-    const rows = selectedOrders.map((o) => [
-      o.tracking_id,
-      o.customer_name,
-      o.customer_phone,
-      getServiceName(o.service_id),
-      o.total_amount,
-      getStatusLabel(o.status),
-      o.payment_status,
-      o.deadline_at || '',
-      o.created_at,
-    ])
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n')
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `orders-export-${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  const toggleRole = async (profileId: string, currentRole: string) => {
-    if (profileId === user.id) {
-      alert('নিজের role নিজে পরিবর্তন করা যাবে না')
-      return
-    }
-
-    const newRole = currentRole === 'admin' ? 'staff' : 'admin'
-    const confirmed = window.confirm(
-      `এই ইউজারের role "${currentRole}" থেকে "${newRole}" এ পরিবর্তন করতে চান?`
-    )
-    if (!confirmed) return
-
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', profileId)
-
-      if (error) throw error
-      const target = profiles.find((p) => p.id === profileId)
-      logActivity(`রোল পরিবর্তন: "${currentRole}" → "${newRole}"`, 'profile', target?.full_name)
-      fetchProfiles()
-    } catch (error) {
-      console.error('Role আপডেট ত্রুটি:', error)
-      alert('Role পরিবর্তন করতে সমস্যা হয়েছে')
-    }
-  }
-
-  const getServiceName = (serviceId: string) => {
-    return services.find((s) => s.id === serviceId)?.name || 'অজানা'
-  }
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      processing: 'bg-blue-100 text-blue-800',
-      completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-    }
-    return colors[status] || 'bg-gray-100 text-gray-800'
-  }
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      pending: 'অপেক্ষায়',
-      processing: 'প্রক্রিয়াধীন',
-      completed: 'সম্পন্ন',
-      cancelled: 'বাতিল',
-    }
-    return labels[status] || status
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">লোড করছি...</p>
-        </div>
-      </div>
-    )
-  }
-
-
-  const ctx = {
-    activeTab, setActiveTab, orders, setOrders,
-    services, setServices, staffList, setStaffList,
-    profiles, setProfiles, coupons, setCoupons,
-    performance, setPerformance, messages, setMessages,
-    selectedStaffId, setSelectedStaffId, messageText, setMessageText,
-    loading, setLoading, staffLoading, couponsLoading,
-    performanceLoading, messagesLoading, sendingMessage, selectedOrderIds,
-    setSelectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus,
-    setBulkStatus, bulkProcessing, editingProfile, setEditingProfile,
-    showCouponModal, setShowCouponModal, editingCoupon, setEditingCoupon,
-    showServiceModal, setShowServiceModal, editingService, setEditingService,
-    assigningOrderId, setAssigningOrderId, stats, user,
-    fetchData, fetchProfiles, fetchMessages, getUnreadCount,
-    totalUnreadMessages, selectStaffConversation, sendMessage, fetchPerformance,
-    getDeadlineInfo, fetchCoupons, toggleCouponActive, deleteCoupon,
-    toggleServiceActive, deleteService, isCouponExpired, updateOrderStatus,
-    assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders,
-    clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
-    toggleRole, getServiceName, getStatusColor, getStatusLabel,
-    galleryPhotos, setGalleryPhotos, galleryLoading, showGalleryModal,
-    setShowGalleryModal, editingGalleryPhoto, setEditingGalleryPhoto,
-    fetchGalleryPhotos, toggleGalleryPhotoActive, deleteGalleryPhoto,
-  }
+  const statCards: StatCard[] = [
+    {
+      label: 'মোট অর্ডার',
+      value: stats.totalOrders,
+      icon: Package,
+      trend: 12,
+      bgGradient: 'from-blue-500 to-blue-600',
+      textColor: 'text-blue-600',
+    },
+    {
+      label: 'আজকের অর্ডার',
+      value: stats.todayOrders,
+      icon: Clock,
+      trend: 8,
+      bgGradient: 'from-emerald-500 to-emerald-600',
+      textColor: 'text-emerald-600',
+    },
+    {
+      label: 'মোট রাজস্ব',
+      value: `৳${(stats.totalRevenue || 0).toLocaleString('bn-BD')}`,
+      icon: DollarSign,
+      trend: 15,
+      bgGradient: 'from-purple-500 to-purple-600',
+      textColor: 'text-purple-600',
+    },
+    {
+      label: 'আজকের রাজস্ব',
+      value: `৳${(stats.todayRevenue || 0).toLocaleString('bn-BD')}`,
+      icon: TrendingUp,
+      trend: 5,
+      bgGradient: 'from-pink-500 to-pink-600',
+      textColor: 'text-pink-600',
+    },
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">ড্যাশবোর্ড</h1>
-          <p className="text-gray-600 mt-2">স্বাগতম, {user.email}</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+      {/* শীর্ষ নেভিগেশন বার */}
+      <header className="fixed top-0 right-0 left-0 md:left-64 h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 z-40 shadow-sm">
+        <div className="flex items-center justify-between h-full px-4 md:px-6">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition"
+          >
+            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          
+          <div className="flex-1"></div>
+          
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{user.email}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">অ্যাডমিন</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500"></div>
+          </div>
         </div>
+      </header>
 
-        {/* ট্যাব সুইচার */}
-        <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-lg shadow inline-flex">
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'orders'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Package size={18} />
-            অর্ডার ও পরিসংখ্যান
-          </button>
-          <button
-            onClick={() => setActiveTab('services')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'services'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Layers size={18} />
-            সার্ভিস ম্যানেজমেন্ট
-          </button>
-          <button
-            onClick={() => setActiveTab('staff')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'staff'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Users size={18} />
-            স্টাফ ম্যানেজমেন্ট
-          </button>
-          <button
-            onClick={() => setActiveTab('coupons')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'coupons'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Ticket size={18} />
-            কুপন ম্যানেজমেন্ট
-          </button>
-          <button
-            onClick={() => setActiveTab('performance')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'performance'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Award size={18} />
-            কমিশন ও পারফরম্যান্স
-          </button>
-          <button
-            onClick={() => setActiveTab('messages')}
-            className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'messages'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <MessageSquare size={18} />
-            মেসেজ
-            {totalUnreadMessages > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {totalUnreadMessages}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('gallery')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'gallery'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <GalleryIcon size={18} />
-            গ্যালারি ম্যানেজমেন্ট
-          </button>
-          <button
-            onClick={() => setActiveTab('reviews')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'reviews'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Star size={18} />
-            রিভিউ ম্যানেজমেন্ট
-          </button>
-          <button
-            onClick={() => setActiveTab('cashbook')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'cashbook'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Wallet size={18} />
-            ক্যাশ-বুক
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'reports'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <PieChart size={18} />
-            রিপোর্টস
-          </button>
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'inventory'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Boxes size={18} />
-            ইনভেন্টরি
-          </button>
-          <button
-            onClick={() => setActiveTab('pos')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'pos'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <ShoppingCart size={18} />
-            POS (দ্রুত বিক্রয়)
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              activeTab === 'settings'
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <SettingsIcon size={18} />
-            সেটিংস
-          </button>
+      {/* সাইডবার */}
+      <aside
+        className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 overflow-y-auto transition-all duration-300 z-30 ${
+          !sidebarOpen ? '-translate-x-full md:translate-x-0' : ''
+        }`}
+      >
+        <nav className="p-4 space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id)
+                  setMobileMenuOpen(false)
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all group ${
+                  activeTab === item.id
+                    ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-200'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Icon size={20} className={activeTab === item.id ? '' : 'group-hover:scale-110 transition'} />
+                <span className="flex-1 text-left font-medium text-sm">{item.label}</span>
+                {item.badge ? (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </nav>
+      </aside>
+
+      {/* মূল কন্টেন্ট */}
+      <main className="pt-20 md:pt-20 md:ml-64">
+        <div className="p-4 md:p-8 max-w-7xl">
+          {/* স্ট্যাটস কার্ড */}
+          {activeTab === 'orders' && (
+            <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {statCards.map((stat, i) => {
+                const Icon = stat.icon
+                return (
+                  <div
+                    key={i}
+                    className={`group bg-gradient-to-br ${stat.bgGradient} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden relative`}
+                  >
+                    {/* ব্যাকগ্রাউন্ড ডেকোরেশন */}
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform" />
+                    
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <Icon size={32} className="opacity-80" />
+                        {stat.trend && (
+                          <div className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full text-sm">
+                            <TrendingUp size={14} />
+                            <span>+{stat.trend}%</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium opacity-90 mb-2">{stat.label}</p>
+                      <p className="text-3xl font-bold">{stat.value}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ট্যাব কন্টেন্ট */}
+          {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
+          {activeTab === 'services' && <ServicesTab ctx={ctx} />}
+          {activeTab === 'staff' && <StaffTab ctx={ctx} />}
+          {activeTab === 'coupons' && <CouponsTab ctx={ctx} />}
+          {activeTab === 'performance' && <PerformanceTab ctx={ctx} />}
+          {activeTab === 'messages' && <MessagesTab ctx={ctx} />}
+          {activeTab === 'gallery' && <GalleryTab ctx={ctx} />}
+          {activeTab === 'reviews' && <ReviewsTab />}
+          {activeTab === 'cashbook' && <CashBookTab />}
+          {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
+          {activeTab === 'settings' && <SettingsTab />}
+          {activeTab === 'inventory' && <InventoryTab />}
+          {activeTab === 'pos' && <POSTab />}
         </div>
+      </main>
 
-        {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
-        {activeTab === 'services' && <ServicesTab ctx={ctx} />}
-        {activeTab === 'staff' && <StaffTab ctx={ctx} />}
-        {activeTab === 'coupons' && <CouponsTab ctx={ctx} />}
-        {activeTab === 'performance' && <PerformanceTab ctx={ctx} />}
-        {activeTab === 'messages' && <MessagesTab ctx={ctx} />}
-        {activeTab === 'gallery' && <GalleryTab ctx={ctx} />}
-        {activeTab === 'reviews' && <ReviewsTab />}
-        {activeTab === 'cashbook' && <CashBookTab />}
-        {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
-        {activeTab === 'settings' && <SettingsTab />}
-        {activeTab === 'inventory' && <InventoryTab />}
-        {activeTab === 'pos' && <POSTab />}
-      </div>
-
+      {/* মডালগুলো */}
       {editingProfile && (
         <StaffProfileEditModal
           profile={editingProfile}
