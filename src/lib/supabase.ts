@@ -188,6 +188,8 @@ export interface SiteSettings {
   } | null
   last_backup_at?: string | null
   last_backup_by?: string | null
+  ga_measurement_id?: string | null
+  fb_pixel_id?: string | null
   updated_at: string
   updated_by?: string | null
 }
