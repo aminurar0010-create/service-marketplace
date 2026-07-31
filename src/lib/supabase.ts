@@ -194,6 +194,66 @@ export interface SiteSettings {
   updated_by?: string | null
 }
 
+export interface InventoryItem {
+  id: string
+  name: string
+  sku?: string | null
+  category?: string | null
+  unit: string
+  quantity: number
+  low_stock_threshold: number
+  cost_price: number
+  sell_price: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StockMovement {
+  id: string
+  item_id: string
+  movement_type: 'in' | 'out' | 'adjustment'
+  quantity: number
+  reason?: string | null
+  reference_type?: string | null
+  reference_id?: string | null
+  created_by?: string | null
+  created_at: string
+}
+
+export interface POSSale {
+  id: string
+  sale_number: string
+  customer_name?: string | null
+  customer_phone?: string | null
+  payment_method: string
+  subtotal: number
+  discount_amount: number
+  total_amount: number
+  status: 'completed' | 'refunded'
+  created_by?: string | null
+  created_at: string
+}
+
+export interface POSSaleItem {
+  id: string
+  sale_id: string
+  item_type: 'service' | 'inventory' | 'custom'
+  item_ref_id?: string | null
+  item_name: string
+  quantity: number
+  unit_price: number
+  line_total: number
+}
+
+export interface CreatePOSSaleResult {
+  success: boolean
+  message?: string
+  sale_id?: string
+  sale_number?: string
+  total_amount?: number
+}
+
 export interface ActivityLog {
   id: string
   actor_id?: string | null

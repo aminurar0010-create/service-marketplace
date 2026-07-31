@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
-import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, Wallet, PieChart, Settings as SettingsIcon } from 'lucide-react'
+import { Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
@@ -14,13 +14,15 @@ import ReviewsTab from '../admin/ReviewsTab'
 import CashBookTab from '../admin/CashBookTab'
 import ReportsTab from '../admin/ReportsTab'
 import SettingsTab from '../admin/SettingsTab'
+import InventoryTab from '../admin/InventoryTab'
+import POSTab from '../admin/POSTab'
 import StaffProfileEditModal from '../admin/StaffProfileEditModal'
 import CouponFormModal from '../admin/CouponFormModal'
 import ServiceFormModal from '../admin/ServiceFormModal'
 import GalleryFormModal from '../admin/GalleryFormModal'
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos'>('orders')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -770,6 +772,28 @@ export default function AdminDashboard({ user }: { user: any }) {
             রিপোর্টস
           </button>
           <button
+            onClick={() => setActiveTab('inventory')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'inventory'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Boxes size={18} />
+            ইনভেন্টরি
+          </button>
+          <button
+            onClick={() => setActiveTab('pos')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'pos'
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <ShoppingCart size={18} />
+            POS (দ্রুত বিক্রয়)
+          </button>
+          <button
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${
               activeTab === 'settings'
@@ -793,6 +817,8 @@ export default function AdminDashboard({ user }: { user: any }) {
         {activeTab === 'cashbook' && <CashBookTab />}
         {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
         {activeTab === 'settings' && <SettingsTab />}
+        {activeTab === 'inventory' && <InventoryTab />}
+        {activeTab === 'pos' && <POSTab />}
       </div>
 
       {editingProfile && (
