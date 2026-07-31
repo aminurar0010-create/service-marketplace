@@ -1,45 +1,86 @@
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
+import { MessageCircle, X, Send, Loader2, Paperclip } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
+  imagePreview?: string
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
   role: 'assistant',
-  text: 'আসসালামু আলাইকুম! আমি নিউ প্রিন্টার্সের ডিজিটাল সহকারী। সরকারি কাগজপত্র, প্রিন্টিং বা ডিজিটাল সেবা নিয়ে কিছু জানতে চান?',
+  text: 'আসসালামু আলাইকুম! আমি নিউ প্রিন্টার্সের ডিজিটাল সহকারী। সরকারি কাগজপত্র, প্রিন্টিং বা ডিজিটাল সেবা নিয়ে কিছু জানতে চান? চাইলে ডকুমেন্টের ছবিও পাঠাতে পারেন, আমি চেক করে দেব।',
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.split(',')[1] || '')
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }
 
 // ফেজ ৫ — স্মার্ট চ্যাটবট: Gemini API-ভিত্তিক, Supabase Edge Function (chat-assistant) কল করে
+// এখন সাপোর্ট করে: টেক্সট প্রশ্ন, ডকুমেন্ট ছবি চেক (OCR), দাম হিসাব, এবং ফোন নম্বর দিলে CRM/পুরনো অর্ডার হিস্ট্রি
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, open])
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('শুধু ছবি (JPG/PNG) আপলোড করা যাবে।')
+      return
+    }
+    setPendingImage({ file, preview: URL.createObjectURL(file) })
+    e.target.value = ''
+  }
+
   const handleSend = async () => {
     const text = input.trim()
-    if (!text || loading) return
+    if ((!text && !pendingImage) || loading) return
 
-    const newMessages: ChatMessage[] = [...messages, { role: 'user', text }]
+    const imageForRequest = pendingImage
+    const userMessage: ChatMessage = {
+      role: 'user',
+      text: text || '(ডকুমেন্টের ছবি পাঠানো হয়েছে)',
+      imagePreview: imageForRequest?.preview,
+    }
+    const newMessages: ChatMessage[] = [...messages, userMessage]
     setMessages(newMessages)
     setInput('')
+    setPendingImage(null)
     setLoading(true)
     setError('')
 
     try {
+      let imagePayload: { base64: string; mimeType: string } | undefined
+      if (imageForRequest) {
+        const base64 = await fileToBase64(imageForRequest.file)
+        imagePayload = { base64, mimeType: imageForRequest.file.type }
+      }
+
       const { data, error: fnError } = await supabase.functions.invoke('chat-assistant', {
         body: {
           message: text,
           history: newMessages.slice(0, -1).map((m) => ({ role: m.role, text: m.text })),
+          image: imagePayload,
         },
       })
 
@@ -92,6 +133,9 @@ export default function ChatWidget() {
                     m.role === 'user' ? 'bg-ink-700 text-white rounded-br-none' : 'bg-white border border-gray-200 text-charcoal rounded-bl-none'
                   }`}
                 >
+                  {m.imagePreview && (
+                    <img src={m.imagePreview} alt="আপলোড করা ডকুমেন্ট" className="rounded-md mb-1.5 max-h-40 w-auto" />
+                  )}
                   {m.text}
                 </div>
               </div>
@@ -107,7 +151,26 @@ export default function ChatWidget() {
             {error && <p className="text-xs text-red-600 text-center">{error}</p>}
           </div>
 
+          {pendingImage && (
+            <div className="px-3 pt-2 flex items-center gap-2">
+              <img src={pendingImage.preview} alt="নির্বাচিত ছবি" className="w-12 h-12 object-cover rounded-md border border-gray-200" />
+              <span className="text-xs text-charcoal/60 flex-1 truncate">{pendingImage.file.name}</span>
+              <button onClick={() => setPendingImage(null)} className="text-xs text-red-600" aria-label="ছবি বাদ দিন">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <div className="p-2 border-t border-gray-200 flex items-center gap-2">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-9 h-9 flex-shrink-0 rounded-full text-ink-700 hover:bg-gray-100 flex items-center justify-center"
+              aria-label="ছবি সংযুক্ত করুন"
+              title="ডকুমেন্টের ছবি আপলোড করুন"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
             <input
               type="text"
               value={input}
@@ -118,7 +181,7 @@ export default function ChatWidget() {
             />
             <button
               onClick={handleSend}
-              disabled={loading || !input.trim()}
+              disabled={loading || (!input.trim() && !pendingImage)}
               className="w-9 h-9 flex-shrink-0 rounded-full bg-ink-700 text-white flex items-center justify-center disabled:opacity-40"
               aria-label="পাঠান"
             >
