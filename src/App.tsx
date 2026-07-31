@@ -4,6 +4,8 @@ import type { User } from '@supabase/supabase-js'
 import { supabase, Profile } from './lib/supabase'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
+import InstallPrompt from './components/InstallPrompt'
+import Analytics from './components/Analytics'
 
 // Pages
 import Home from './pages/Home'
@@ -60,6 +62,7 @@ export default function App() {
   return (
     <Router>
       <div className="min-h-screen bg-paper">
+        <Analytics />
         <Navbar user={user} profile={profile} />
         <Routes>
           {/* জনসাধারণের রুট */}
@@ -115,6 +118,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         <Footer />
+        <InstallPrompt />
       </div>
     </Router>
   )
