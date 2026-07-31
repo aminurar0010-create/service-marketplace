@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import InstallPrompt from './components/InstallPrompt'
 import Analytics from './components/Analytics'
+import ChatWidget from './components/ChatWidget'
 
 // Pages
 import Home from './pages/Home'
@@ -119,6 +120,7 @@ export default function App() {
         </Routes>
         <Footer />
         <InstallPrompt />
+        <ChatWidget />
       </div>
     </Router>
   )
