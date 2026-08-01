@@ -446,6 +446,116 @@ export default function AdminDashboardV2({ user }: { user: any }) {
 
   const totalUnreadMessages = staffList.reduce((sum, s) => sum + getUnreadCount(s.id), 0)
 
+  const toggleServiceActive = async (service: Service) => {
+    try {
+      await supabase.from('services').update({ is_active: !service.is_active }).eq('id', service.id)
+      fetchData()
+    } catch (error) {
+      console.error('সার্ভিস স্ট্যাটাস পরিবর্তন ত্রুটি:', error)
+    }
+  }
+
+  const deleteService = async (service: Service) => {
+    if (!window.confirm(`"${service.name}" সার্ভিসটি ডিলিট করতে চান?`)) return
+    try {
+      await supabase.from('services').delete().eq('id', service.id)
+      fetchData()
+    } catch (error) {
+      console.error('সার্ভিস ডিলিট ত্রুটি:', error)
+    }
+  }
+
+  const toggleRole = async (profile: Profile) => {
+    const newRole = profile.role === 'admin' ? 'staff' : 'admin'
+    if (!window.confirm(`${profile.full_name || 'এই ইউজার'}-এর role "${newRole}" করতে চান?`)) return
+    try {
+      await supabase.from('profiles').update({ role: newRole }).eq('id', profile.id)
+      fetchProfiles()
+      fetchData()
+    } catch (error) {
+      console.error('Role পরিবর্তন ত্রুটি:', error)
+    }
+  }
+
+  const toggleGalleryPhotoActive = async (photo: GalleryPhoto) => {
+    try {
+      await supabase.from('gallery_photos').update({ is_active: !photo.is_active }).eq('id', photo.id)
+      fetchGalleryPhotos()
+    } catch (error) {
+      console.error('গ্যালারি স্ট্যাটাস পরিবর্তন ত্রুটি:', error)
+    }
+  }
+
+  const deleteGalleryPhoto = async (photo: GalleryPhoto) => {
+    if (!window.confirm('এই ছবিটি ডিলিট করতে চান?')) return
+    try {
+      await supabase.from('gallery_photos').delete().eq('id', photo.id)
+      fetchGalleryPhotos()
+    } catch (error) {
+      console.error('গ্যালারি ডিলিট ত্রুটি:', error)
+    }
+  }
+
+  const toggleCouponActive = async (coupon: Coupon) => {
+    try {
+      await supabase.from('coupons').update({ is_active: !coupon.is_active }).eq('id', coupon.id)
+      fetchCoupons()
+    } catch (error) {
+      console.error('কুপন স্ট্যাটাস পরিবর্তন ত্রুটি:', error)
+    }
+  }
+
+  const deleteCoupon = async (coupon: Coupon) => {
+    if (!window.confirm(`কুপন "${coupon.code}" ডিলিট করতে চান?`)) return
+    try {
+      await supabase.from('coupons').delete().eq('id', coupon.id)
+      fetchCoupons()
+    } catch (error) {
+      console.error('কুপন ডিলিট ত্রুটি:', error)
+    }
+  }
+
+  const isCouponExpired = (coupon: Coupon) => {
+    if (!coupon.valid_until) return false
+    return new Date(coupon.valid_until) < new Date()
+  }
+
+  const selectStaffConversation = async (staffId: string) => {
+    setSelectedStaffId(staffId)
+    const unreadIds = messages
+      .filter((m) => m.sender_id === staffId && m.receiver_id === user.id && !m.is_read)
+      .map((m) => m.id)
+
+    if (unreadIds.length > 0) {
+      try {
+        await supabase.from('messages').update({ is_read: true }).in('id', unreadIds)
+        fetchMessages()
+      } catch (error) {
+        console.error('মেসেজ পঠিত হিসেবে চিহ্নিত করতে ত্রুটি:', error)
+      }
+    }
+  }
+
+  const sendMessage = async () => {
+    if (!messageText.trim() || !selectedStaffId || sendingMessage) return
+    setSendingMessage(true)
+    try {
+      const { error } = await supabase.from('messages').insert({
+        sender_id: user.id,
+        receiver_id: selectedStaffId,
+        content: messageText.trim(),
+        is_read: false,
+      })
+      if (error) throw error
+      setMessageText('')
+      fetchMessages()
+    } catch (error) {
+      console.error('মেসেজ পাঠাতে ত্রুটি:', error)
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
   const ctx = {
     orders, setOrders, services, setServices, staffList, setStaffList, profiles, setProfiles,
     coupons, setCoupons, performance, setPerformance, messages, setMessages, loading, setLoading,
@@ -462,6 +572,10 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     updateOrderStatus, updateOrderPaymentStatus, assignStaff, autoAssignStaff,
     toggleSelectOrder, toggleSelectAllOrders, clearSelection,
     bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
+    toggleServiceActive, deleteService, toggleRole,
+    toggleGalleryPhotoActive, deleteGalleryPhoto,
+    toggleCouponActive, deleteCoupon, isCouponExpired,
+    getUnreadCount, selectStaffConversation, sendMessage,
   }
 
   const navItems: NavItem[] = [
