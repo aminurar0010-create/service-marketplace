@@ -3,10 +3,8 @@ import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, G
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
-  DollarSign, Clock, AlertCircle
+  DollarSign, Clock
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { bn } from 'date-fns/locale'
 import OrdersTab from '../admin/OrdersTab'
 import ServicesTab from '../admin/ServicesTab'
 import StaffTab from '../admin/StaffTab'
@@ -46,7 +44,7 @@ interface StatCard {
 export default function AdminDashboardV2({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState<Tab>('orders')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [, setMobileMenuOpen] = useState(false)
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
