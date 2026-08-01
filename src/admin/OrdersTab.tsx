@@ -1,9 +1,13 @@
-import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Package, Pencil, TrendingUp, UserCheck, Wand2, X } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
+import OrderMemoModal from './OrderMemoModal'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
   const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
+
+  const [memoOrders, setMemoOrders] = useState<any[] | null>(null)
 
   const getPaymentColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -129,6 +133,15 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                   </div>
 
                   <button
+                    onClick={() => setMemoOrders(orders.filter((o: any) => selectedOrderIds.includes(o.id)))}
+                    title="৪টি করে একসাথে সিলেক্ট করলে এক পৃষ্ঠা A4-তে ৪টি মেমো প্রিন্ট হবে"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition whitespace-nowrap"
+                  >
+                    <Printer size={14} />
+                    মেমো প্রিন্ট
+                  </button>
+
+                  <button
                     onClick={exportSelectedCSV}
                     className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-sm font-semibold rounded hover:bg-gray-50 transition whitespace-nowrap"
                   >
@@ -189,7 +202,16 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                             />
                           </td>
                           <td className="px-6 py-4 text-sm font-mono font-bold text-indigo-600">
-                            {order.tracking_id}
+                            <div className="flex items-center gap-2">
+                              {order.tracking_id}
+                              <button
+                                onClick={() => setMemoOrders([order])}
+                                title="মেমো প্রিন্ট করুন"
+                                className="text-gray-400 hover:text-green-600 transition"
+                              >
+                                <Printer size={15} />
+                              </button>
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-sm">
                             <div>
@@ -277,6 +299,14 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                 </table>
               </div>
             </div>
+
+            {memoOrders && (
+              <OrderMemoModal
+                orders={memoOrders}
+                getServiceName={getServiceName}
+                onClose={() => setMemoOrders(null)}
+              />
+            )}
           </>
   )
 }
