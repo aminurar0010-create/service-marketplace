@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
-  DollarSign, Clock
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import ServicesTab from '../admin/ServicesTab'
@@ -24,8 +24,12 @@ import StaffProfileEditModal from '../admin/StaffProfileEditModal'
 import CouponFormModal from '../admin/CouponFormModal'
 import ServiceFormModal from '../admin/ServiceFormModal'
 import GalleryFormModal from '../admin/GalleryFormModal'
+import UsersTab from '../admin/UsersTab'
+import WebsiteTab from '../admin/WebsiteTab'
+import BlogTab from '../admin/BlogTab'
+import AIPromptsTab from '../admin/AIPromptsTab'
 
-type Tab = 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos'
+type Tab = 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts'
 
 interface NavItem {
   id: Tab
@@ -591,6 +595,10 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     { id: 'reports', label: 'রিপোর্টস', icon: PieChart },
     { id: 'inventory', label: 'ইনভেন্টরি', icon: Boxes },
     { id: 'pos', label: 'POS', icon: ShoppingCart },
+    { id: 'users', label: 'ইউজার ম্যানেজমেন্ট', icon: UserCog },
+    { id: 'website', label: 'ওয়েবসাইট ম্যানেজমেন্ট', icon: Globe },
+    { id: 'blog', label: 'ব্লগ', icon: Newspaper },
+    { id: 'prompts', label: 'AI প্রম্পট লাইব্রেরি', icon: Sparkles },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
 
@@ -737,6 +745,10 @@ export default function AdminDashboardV2({ user }: { user: any }) {
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'inventory' && <InventoryTab />}
           {activeTab === 'pos' && <POSTab />}
+          {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'website' && <WebsiteTab />}
+          {activeTab === 'blog' && <BlogTab />}
+          {activeTab === 'prompts' && <AIPromptsTab />}
         </div>
       </main>
 

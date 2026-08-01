@@ -246,6 +246,13 @@ export default function OrderForm() {
         return
       }
 
+      if (result.tracking_id) {
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData.session?.user) {
+          await supabase.rpc('link_order_to_customer', { p_tracking_id: result.tracking_id })
+        }
+      }
+
       setTrackingId(result.tracking_id || '')
       setFinalAmountPaid(result.final_amount ?? totalAmount)
       setSubmitted(true)

@@ -1,12 +1,13 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase, Profile } from './lib/supabase'
+import { supabase, Profile, Customer } from './lib/supabase'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import InstallPrompt from './components/InstallPrompt'
 import Analytics from './components/Analytics'
 import ChatWidget from './components/ChatWidget'
+import SiteBanner from './components/SiteBanner'
 
 // Pages
 import Home from './pages/Home'
@@ -15,10 +16,16 @@ import TrackingStatus from './pages/TrackingStatus'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import StaffDashboard from './pages/StaffDashboard'
+import CustomerLogin from './pages/CustomerLogin'
+import CustomerDashboard from './pages/CustomerDashboard'
+import Blog from './pages/Blog'
+import BlogPostPage from './pages/BlogPostPage'
+import PromptLibrary from './pages/PromptLibrary'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,11 +38,23 @@ export default function App() {
           .from('profiles')
           .select('*')
           .eq('id', currentUser.id)
-          .single()
+          .maybeSingle()
 
         setProfile(profileData || null)
+
+        if (!profileData) {
+          const { data: customerData } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle()
+          setCustomer(customerData || null)
+        } else {
+          setCustomer(null)
+        }
       } else {
         setProfile(null)
+        setCustomer(null)
       }
 
       setLoading(false)
@@ -64,12 +83,46 @@ export default function App() {
     <Router>
       <div className="min-h-screen bg-paper">
         <Analytics />
-        <Navbar user={user} profile={profile} />
+        <SiteBanner />
+        <Navbar user={user} profile={profile} customer={customer} />
         <Routes>
           {/* জনসাধারণের রুট */}
           <Route path="/" element={<Home />} />
           <Route path="/order" element={<OrderForm />} />
           <Route path="/tracking" element={<TrackingStatus />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/prompts" element={<PromptLibrary />} />
+
+          {/* কাস্টমার অ্যাকাউন্ট */}
+          <Route
+            path="/account/login"
+            element={
+              !user ? (
+                <CustomerLogin />
+              ) : isAdmin ? (
+                <Navigate to="/admin/dashboard" />
+              ) : isStaff ? (
+                <Navigate to="/staff/dashboard" />
+              ) : (
+                <Navigate to="/account" />
+              )
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              user && !isAdmin && !isStaff ? (
+                <CustomerDashboard user={user} />
+              ) : isAdmin ? (
+                <Navigate to="/admin/dashboard" />
+              ) : isStaff ? (
+                <Navigate to="/staff/dashboard" />
+              ) : (
+                <Navigate to="/account/login" />
+              )
+            }
+          />
 
           {/* লগইন */}
           <Route

@@ -1,11 +1,46 @@
+import { useEffect, useState } from 'react'
 import { Phone, Mail, MapPin, MessageCircle } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 
-const PHONE = '01968673241'
-const WHATSAPP_NUMBER = '8801968673241'
-const EMAIL = 'newprintssmj@gmail.com'
-const ADDRESS = 'সুন্দলপুর বাজার, ঈদগাহের পূর্ব পাশে, মনিরামপুর, যশোর'
+const DEFAULT_PHONE = '01968673241'
+const DEFAULT_WHATSAPP = '8801968673241'
+const DEFAULT_EMAIL = 'newprintssmj@gmail.com'
+const DEFAULT_ADDRESS = 'সুন্দলপুর বাজার, ঈদগাহের পূর্ব পাশে, মনিরামপুর, যশোর'
 
 export default function Contact() {
+  const [phone, setPhone] = useState(DEFAULT_PHONE)
+  const [whatsapp, setWhatsapp] = useState(DEFAULT_WHATSAPP)
+  const [email, setEmail] = useState(DEFAULT_EMAIL)
+  const [address, setAddress] = useState(DEFAULT_ADDRESS)
+  const [mapEmbedUrl, setMapEmbedUrl] = useState('')
+
+  useEffect(() => {
+    const fetchContact = async () => {
+      try {
+        const { data } = await supabase
+          .from('site_settings')
+          .select('contact_phone, contact_whatsapp, contact_email, contact_address, contact_map_embed_url')
+          .eq('id', 1)
+          .maybeSingle()
+
+        if (data?.contact_phone) setPhone(data.contact_phone)
+        if (data?.contact_whatsapp) setWhatsapp(data.contact_whatsapp)
+        if (data?.contact_email) setEmail(data.contact_email)
+        if (data?.contact_address) setAddress(data.contact_address)
+        if (data?.contact_map_embed_url) setMapEmbedUrl(data.contact_map_embed_url)
+      } catch (error) {
+        console.error('যোগাযোগ তথ্য লোড ত্রুটি:', error)
+      }
+    }
+    fetchContact()
+  }, [])
+
+  const PHONE = phone
+  const WHATSAPP_NUMBER = whatsapp
+  const EMAIL = email
+  const ADDRESS = address
+  const mapSrc = mapEmbedUrl || `https://www.google.com/maps?q=${encodeURIComponent(ADDRESS)}&output=embed`
+
   return (
     <section className="py-20 px-4 bg-white">
       <div className="max-w-7xl mx-auto">
@@ -71,7 +106,7 @@ export default function Contact() {
           <div className="doc-frame rounded-xl overflow-hidden shadow-md min-h-[320px]">
             <iframe
               title="নিউ প্রিন্টার্স লোকেশন ম্যাপ"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(ADDRESS)}&output=embed`}
+              src={mapSrc}
               width="100%"
               height="100%"
               style={{ border: 0, minHeight: 320 }}

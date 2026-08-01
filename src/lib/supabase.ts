@@ -64,6 +64,9 @@ export interface Order {
   custom_field_responses?: CustomFieldResponse[]
   deadline_at?: string | null
   assigned_staff_id?: string
+  customer_id?: string | null
+  service_name?: string
+  service_category?: string
   created_at: string
   updated_at: string
 }
@@ -190,8 +193,52 @@ export interface SiteSettings {
   last_backup_by?: string | null
   ga_measurement_id?: string | null
   fb_pixel_id?: string | null
+  banner_enabled?: boolean
+  banner_text?: string | null
+  banner_link?: string | null
+  notice_enabled?: boolean
+  notice_text?: string | null
+  contact_phone?: string | null
+  contact_whatsapp?: string | null
+  contact_email?: string | null
+  contact_address?: string | null
+  contact_facebook?: string | null
+  contact_map_embed_url?: string | null
   updated_at: string
   updated_by?: string | null
+}
+
+export interface Customer {
+  id: string
+  full_name: string
+  phone?: string | null
+  email?: string | null
+  is_blocked: boolean
+  created_at: string
+}
+
+export interface BlogPost {
+  id: string
+  title: string
+  slug: string
+  excerpt?: string | null
+  content: string
+  cover_image_url?: string | null
+  author_name?: string
+  is_published: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AIPrompt {
+  id: string
+  title: string
+  category: string
+  description?: string | null
+  prompt_text: string
+  is_active: boolean
+  display_order: number
+  created_at: string
 }
 
 export interface InventoryItem {

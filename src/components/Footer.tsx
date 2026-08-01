@@ -25,6 +25,9 @@ export default function Footer() {
             <li><Link to="/" className="hover:text-brass-light transition">হোম</Link></li>
             <li><Link to="/order" className="hover:text-brass-light transition">অর্ডার করুন</Link></li>
             <li><Link to="/tracking" className="hover:text-brass-light transition">ট্র্যাক করুন</Link></li>
+            <li><Link to="/blog" className="hover:text-brass-light transition">ব্লগ</Link></li>
+            <li><Link to="/prompts" className="hover:text-brass-light transition">AI প্রম্পট লাইব্রেরি</Link></li>
+            <li><Link to="/account/login" className="hover:text-brass-light transition">আমার অ্যাকাউন্ট</Link></li>
             <li><Link to="/admin/login" className="hover:text-brass-light transition">অ্যাডমিন লগইন</Link></li>
           </ul>
         </div>

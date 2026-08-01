@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { LogOut, Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-export default function Navbar({ user, profile }: { user: any; profile?: any }) {
+export default function Navbar({ user, profile, customer }: { user: any; profile?: any; customer?: any }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -28,8 +28,10 @@ export default function Navbar({ user, profile }: { user: any; profile?: any }) 
     navigate('/')
   }
 
+  const isStaffOrAdmin = profile?.role === 'staff' || profile?.role === 'admin'
   const dashboardPath = profile?.role === 'staff' ? '/staff/dashboard' : '/admin/dashboard'
   const dashboardLabel = profile?.role === 'staff' ? 'স্টাফ ড্যাশবোর্ড' : 'ড্যাশবোর্ড'
+  const isCustomer = !!user && !isStaffOrAdmin
 
   const transparent = isHome && !scrolled && !mobileOpen
   const linkTone = transparent ? 'text-white/90 hover:text-white' : 'text-charcoal/80 hover:text-ink-600'
@@ -59,8 +61,14 @@ export default function Navbar({ user, profile }: { user: any; profile?: any }) 
             <Link to="/tracking" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
               ট্র্যাক করুন
             </Link>
+            <Link to="/blog" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
+              ব্লগ
+            </Link>
+            <Link to="/prompts" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
+              AI প্রম্পট
+            </Link>
 
-            {user ? (
+            {isStaffOrAdmin ? (
               <>
                 <Link to={dashboardPath} className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
                   {dashboardLabel}
@@ -73,13 +81,34 @@ export default function Navbar({ user, profile }: { user: any; profile?: any }) 
                   লগআউট
                 </button>
               </>
+            ) : isCustomer ? (
+              <>
+                <Link to="/account" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
+                  {customer?.full_name ? customer.full_name.split(' ')[0] : 'আমার অ্যাকাউন্ট'}
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-seal/90 text-white px-4 py-2 rounded-lg hover:bg-seal transition"
+                >
+                  <LogOut size={18} />
+                  লগআউট
+                </button>
+              </>
             ) : (
-              <Link
-                to="/admin/login"
-                className="bg-brass text-ink-900 px-4 py-2 rounded-lg hover:bg-brass-light transition font-semibold"
-              >
-                অ্যাডমিন লগইন
-              </Link>
+              <>
+                <Link
+                  to="/account/login"
+                  className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition font-semibold`}
+                >
+                  আমার অ্যাকাউন্ট
+                </Link>
+                <Link
+                  to="/admin/login"
+                  className="bg-brass text-ink-900 px-4 py-2 rounded-lg hover:bg-brass-light transition font-semibold"
+                >
+                  অ্যাডমিন লগইন
+                </Link>
+              </>
             )}
           </div>
 
@@ -103,7 +132,13 @@ export default function Navbar({ user, profile }: { user: any; profile?: any }) 
             <Link to="/tracking" className="block text-white/90 hover:text-white py-2">
               ট্র্যাক করুন
             </Link>
-            {user ? (
+            <Link to="/blog" className="block text-white/90 hover:text-white py-2">
+              ব্লগ
+            </Link>
+            <Link to="/prompts" className="block text-white/90 hover:text-white py-2">
+              AI প্রম্পট
+            </Link>
+            {isStaffOrAdmin ? (
               <>
                 <Link to={dashboardPath} className="block text-white/90 hover:text-white py-2">
                   {dashboardLabel}
@@ -115,13 +150,30 @@ export default function Navbar({ user, profile }: { user: any; profile?: any }) 
                   লগআউট
                 </button>
               </>
+            ) : isCustomer ? (
+              <>
+                <Link to="/account" className="block text-white/90 hover:text-white py-2">
+                  {customer?.full_name || 'আমার অ্যাকাউন্ট'}
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left text-white bg-seal/90 hover:bg-seal py-2 px-2 rounded mt-2"
+                >
+                  লগআউট
+                </button>
+              </>
             ) : (
-              <Link
-                to="/admin/login"
-                className="block bg-brass text-ink-900 px-4 py-2 rounded text-center font-semibold mt-2"
-              >
-                অ্যাডমিন লগইন
-              </Link>
+              <>
+                <Link to="/account/login" className="block text-white/90 hover:text-white py-2 font-semibold">
+                  আমার অ্যাকাউন্ট
+                </Link>
+                <Link
+                  to="/admin/login"
+                  className="block bg-brass text-ink-900 px-4 py-2 rounded text-center font-semibold mt-2"
+                >
+                  অ্যাডমিন লগইন
+                </Link>
+              </>
             )}
           </div>
         )}
