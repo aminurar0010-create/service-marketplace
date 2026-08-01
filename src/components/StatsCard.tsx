@@ -1,6 +1,5 @@
 import { LucideIcon } from 'lucide-react'
 import { TrendingUp } from 'lucide-react'
-
 interface StatsCardProps {
   label: string
   value: string | number
@@ -10,14 +9,12 @@ interface StatsCardProps {
   textColor: string
   onClick?: () => void
 }
-
 export default function StatsCard({
   label,
   value,
   icon: Icon,
   trend,
   bgGradient,
-  textColor,
   onClick,
 }: StatsCardProps) {
   return (
@@ -29,7 +26,6 @@ export default function StatsCard({
     >
       {/* Background Decoration Circle */}
       <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform duration-300" />
-
       {/* Content */}
       <div className="relative z-10">
         {/* Header: Icon + Trend */}
@@ -44,21 +40,17 @@ export default function StatsCard({
             </div>
           )}
         </div>
-
         {/* Label */}
         <p className="text-sm font-medium opacity-90 mb-2 uppercase tracking-widest">
           {label}
         </p>
-
         {/* Value */}
         <p className="text-4xl md:text-5xl font-bold tracking-tight group-hover:scale-105 transition-transform duration-300 origin-left">
           {value}
         </p>
-
         {/* Bottom Border Animation */}
         <div className="mt-4 h-1 w-0 group-hover:w-8 bg-white/60 rounded-full transition-all duration-300" />
       </div>
-
       {/* Hover Glow Effect */}
       <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </div>
