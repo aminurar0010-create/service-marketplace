@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
+import { formatDistanceToNow } from 'date-fns'
+import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
@@ -74,6 +76,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
   const [showServiceModal, setShowServiceModal] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
+  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null)
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -81,21 +84,6 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     todayRevenue: 0,
     overdueOrders: 0,
   })
-
-  // ... (ফাংশনগুলো এখানে থাকবে - আগের থেকে কপি করা)
-  const ctx = {
-    orders, setOrders, services, setServices, staffList, setStaffList, profiles, setProfiles,
-    coupons, setCoupons, performance, setPerformance, messages, setMessages, loading, setLoading,
-    showGalleryModal, setShowGalleryModal, editingGalleryPhoto, setEditingGalleryPhoto,
-    galleryPhotos, setGalleryPhotos, galleryLoading, setGalleryLoading, activeTab, user,
-    editingProfile, setEditingProfile, showCouponModal, setShowCouponModal, editingCoupon,
-    setEditingCoupon, showServiceModal, setShowServiceModal, editingService, setEditingService,
-    selectedOrderIds, setSelectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus,
-    bulkProcessing, setBulkProcessing, staffLoading, setStaffLoading, couponsLoading,
-    setCouponsLoading, performanceLoading, setPerformanceLoading, messagesLoading,
-    setMessagesLoading, sendingMessage, setSendingMessage, selectedStaffId, setSelectedStaffId,
-    messageText, setMessageText, logActivity
-  }
 
   useEffect(() => {
     fetchData()
@@ -268,10 +256,213 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     }
   }
 
+  const getServiceName = (serviceId: string) => {
+    return services.find((s) => s.id === serviceId)?.name || 'অজানা'
+  }
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      completed: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+    }
+    return colors[status] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'অপেক্ষায়',
+      processing: 'প্রক্রিয়াধীন',
+      completed: 'সম্পন্ন',
+      cancelled: 'বাতিল',
+    }
+    return labels[status] || status
+  }
+
+  const getDeadlineInfo = (order: Order) => {
+    if (!order.deadline_at || order.status === 'completed' || order.status === 'cancelled') {
+      return null
+    }
+    const deadline = new Date(order.deadline_at)
+    const now = new Date()
+    const hoursLeft = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+    if (hoursLeft < 0) {
+      return { label: 'মেয়াদোত্তীর্ণ', color: 'bg-red-100 text-red-800', overdue: true }
+    }
+    if (hoursLeft <= 6) {
+      return { label: `${Math.max(0, Math.round(hoursLeft))} ঘণ্টা বাকি`, color: 'bg-orange-100 text-orange-800', overdue: false }
+    }
+    return {
+      label: formatDistanceToNow(deadline, { locale: bn, addSuffix: true }),
+      color: 'bg-gray-100 text-gray-600',
+      overdue: false,
+    }
+  }
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
+      logActivity('অর্ডার স্ট্যাটাস পরিবর্তন করেছেন', 'order', orderId, { status: newStatus })
+      fetchData()
+    } catch (error) {
+      console.error('অর্ডার আপডেট ত্রুটি:', error)
+    }
+  }
+
+  const updateOrderPaymentStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await supabase.from('orders').update({ payment_status: newStatus }).eq('id', orderId)
+      logActivity('পেমেন্ট স্ট্যাটাস পরিবর্তন করেছেন', 'order', orderId, { payment_status: newStatus })
+      fetchData()
+    } catch (error) {
+      console.error('পেমেন্ট আপডেট ত্রুটি:', error)
+    }
+  }
+
+  const assignStaff = async (orderId: string, staffId: string) => {
+    try {
+      await supabase
+        .from('orders')
+        .update({ assigned_staff_id: staffId || null })
+        .eq('id', orderId)
+      logActivity('স্টাফ অ্যাসাইন করেছেন', 'order', orderId, { assigned_staff_id: staffId })
+      fetchData()
+    } catch (error) {
+      console.error('স্টাফ অ্যাসাইন ত্রুটি:', error)
+    }
+  }
+
+  const autoAssignStaff = async (orderId: string) => {
+    setAssigningOrderId(orderId)
+    try {
+      const availableStaff = staffList.filter((s) => s.is_available)
+      const pool = availableStaff.length > 0 ? availableStaff : staffList
+      if (pool.length === 0) return
+
+      const workload: Record<string, number> = {}
+      pool.forEach((s) => (workload[s.id] = 0))
+      orders.forEach((o) => {
+        if (
+          o.assigned_staff_id &&
+          workload[o.assigned_staff_id] !== undefined &&
+          o.status !== 'completed' &&
+          o.status !== 'cancelled'
+        ) {
+          workload[o.assigned_staff_id]++
+        }
+      })
+
+      const chosen = pool.reduce((best, s) =>
+        workload[s.id] < workload[best.id] ? s : best
+      , pool[0])
+
+      await assignStaff(orderId, chosen.id)
+    } catch (error) {
+      console.error('অটো-অ্যাসাইন ত্রুটি:', error)
+    } finally {
+      setAssigningOrderId(null)
+    }
+  }
+
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    )
+  }
+
+  const toggleSelectAllOrders = () => {
+    setSelectedOrderIds((prev) => (prev.length === orders.length ? [] : orders.map((o) => o.id)))
+  }
+
+  const clearSelection = () => {
+    setSelectedOrderIds([])
+    setBulkStaffId('')
+    setBulkStatus('')
+  }
+
+  const bulkAssignStaff = async () => {
+    if (!bulkStaffId || selectedOrderIds.length === 0) return
+    setBulkProcessing(true)
+    try {
+      await supabase.from('orders').update({ assigned_staff_id: bulkStaffId }).in('id', selectedOrderIds)
+      logActivity('বাল্ক স্টাফ অ্যাসাইন করেছেন', 'order', selectedOrderIds.join(','), { assigned_staff_id: bulkStaffId })
+      clearSelection()
+      fetchData()
+    } catch (error) {
+      console.error('বাল্ক অ্যাসাইন ত্রুটি:', error)
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const bulkUpdateStatus = async () => {
+    if (!bulkStatus || selectedOrderIds.length === 0) return
+    setBulkProcessing(true)
+    try {
+      await supabase.from('orders').update({ status: bulkStatus }).in('id', selectedOrderIds)
+      logActivity('বাল্ক স্ট্যাটাস পরিবর্তন করেছেন', 'order', selectedOrderIds.join(','), { status: bulkStatus })
+      clearSelection()
+      fetchData()
+    } catch (error) {
+      console.error('বাল্ক স্ট্যাটাস আপডেট ত্রুটি:', error)
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const exportSelectedCSV = () => {
+    const selected = orders.filter((o) => selectedOrderIds.includes(o.id))
+    if (selected.length === 0) return
+
+    const headers = ['ট্র্যাকিং ID', 'গ্রাহক', 'ফোন', 'সেবা', 'পরিমাণ', 'পেমেন্ট', 'অবস্থা', 'সময়']
+    const rows = selected.map((o) => [
+      o.tracking_id,
+      o.customer_name,
+      o.customer_phone,
+      getServiceName(o.service_id),
+      o.total_amount,
+      o.payment_status,
+      getStatusLabel(o.status),
+      new Date(o.created_at).toLocaleString('bn-BD'),
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const getUnreadCount = (staffId: string) =>
     messages.filter((m) => m.sender_id === staffId && m.receiver_id === user.id && !m.is_read).length
 
   const totalUnreadMessages = staffList.reduce((sum, s) => sum + getUnreadCount(s.id), 0)
+
+  const ctx = {
+    orders, setOrders, services, setServices, staffList, setStaffList, profiles, setProfiles,
+    coupons, setCoupons, performance, setPerformance, messages, setMessages, loading, setLoading,
+    showGalleryModal, setShowGalleryModal, editingGalleryPhoto, setEditingGalleryPhoto,
+    galleryPhotos, setGalleryPhotos, galleryLoading, setGalleryLoading, activeTab, user,
+    editingProfile, setEditingProfile, showCouponModal, setShowCouponModal, editingCoupon,
+    setEditingCoupon, showServiceModal, setShowServiceModal, editingService, setEditingService,
+    selectedOrderIds, setSelectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus,
+    bulkProcessing, setBulkProcessing, staffLoading, setStaffLoading, couponsLoading,
+    setCouponsLoading, performanceLoading, setPerformanceLoading, messagesLoading,
+    setMessagesLoading, sendingMessage, setSendingMessage, selectedStaffId, setSelectedStaffId,
+    messageText, setMessageText, logActivity, stats, assigningOrderId,
+    getServiceName, getStatusColor, getStatusLabel, getDeadlineInfo,
+    updateOrderStatus, updateOrderPaymentStatus, assignStaff, autoAssignStaff,
+    toggleSelectOrder, toggleSelectAllOrders, clearSelection,
+    bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
+  }
 
   const navItems: NavItem[] = [
     { id: 'orders', label: 'অর্ডার ও পরিসংখ্যান', icon: Package },
