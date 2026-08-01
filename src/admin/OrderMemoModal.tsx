@@ -29,13 +29,21 @@ function MemoSlip({ order, getServiceName }: { order: any; getServiceName: (id: 
   return (
     <div className="memo-slip">
       <div className="memo-header">
-        <div className="memo-business-name">{BUSINESS.name}</div>
-        <div className="memo-tagline">{BUSINESS.tagline}</div>
-        <div className="memo-owner">{BUSINESS.owner}</div>
-        <div className="memo-contact">
-          {BUSINESS.phones.join(', ')} · {BUSINESS.email}
+        <img
+          src="/logo.png"
+          alt="লোগো"
+          className="memo-logo"
+          onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+        />
+        <div className="memo-header-text">
+          <div className="memo-business-name">{BUSINESS.name}</div>
+          <div className="memo-tagline">{BUSINESS.tagline}</div>
+          <div className="memo-owner">{BUSINESS.owner}</div>
+          <div className="memo-contact">
+            {BUSINESS.phones.join(', ')} · {BUSINESS.email}
+          </div>
+          <div className="memo-contact">{BUSINESS.address}</div>
         </div>
-        <div className="memo-contact">{BUSINESS.address}</div>
       </div>
 
       <div className="memo-rule" />
@@ -145,10 +153,14 @@ export default function OrderMemoModal({
           flex-direction: column;
         }
         .memo-sheet.single .memo-slip { border: none; font-size: 14px; height: 100%; }
-        .memo-business-name { font-size: 1.8em; font-weight: 800; color: #0f4c46; text-align: center; }
-        .memo-tagline { text-align: center; color: #b8860b; font-weight: 600; margin-bottom: 2px; }
-        .memo-owner { text-align: center; font-weight: 600; }
-        .memo-contact { text-align: center; color: #444; }
+        .memo-header { display: flex; align-items: center; gap: 10px; }
+        .memo-logo { width: 46px; height: 46px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+        .memo-header-text { flex: 1; }
+        .memo-sheet.single .memo-logo { width: 70px; height: 70px; }
+        .memo-business-name { font-size: 1.6em; font-weight: 800; color: #0f4c46; }
+        .memo-tagline { color: #b8860b; font-weight: 600; margin-bottom: 2px; }
+        .memo-owner { font-weight: 600; }
+        .memo-contact { color: #444; }
         .memo-rule { border-top: 2px solid #0f4c46; margin: 6px 0; }
         .memo-meta { display: flex; justify-content: space-between; margin-bottom: 4px; }
         .memo-meta-right { text-align: right; }
