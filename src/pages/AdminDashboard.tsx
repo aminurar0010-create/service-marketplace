@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import ServicesTab from '../admin/ServicesTab'
@@ -28,8 +28,9 @@ import UsersTab from '../admin/UsersTab'
 import WebsiteTab from '../admin/WebsiteTab'
 import BlogTab from '../admin/BlogTab'
 import AIPromptsTab from '../admin/AIPromptsTab'
+import PortfolioTab from '../admin/PortfolioTab'
 
-type Tab = 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts'
+type Tab = 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio'
 
 interface NavItem {
   id: Tab
@@ -599,6 +600,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     { id: 'website', label: 'ওয়েবসাইট ম্যানেজমেন্ট', icon: Globe },
     { id: 'blog', label: 'ব্লগ', icon: Newspaper },
     { id: 'prompts', label: 'AI প্রম্পট লাইব্রেরি', icon: Sparkles },
+    { id: 'portfolio', label: 'আমাদের কাজ', icon: Briefcase },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
 
@@ -749,6 +751,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
           {activeTab === 'website' && <WebsiteTab />}
           {activeTab === 'blog' && <BlogTab />}
           {activeTab === 'prompts' && <AIPromptsTab />}
+          {activeTab === 'portfolio' && <PortfolioTab />}
         </div>
       </main>
 
