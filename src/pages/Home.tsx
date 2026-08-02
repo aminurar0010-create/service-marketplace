@@ -5,6 +5,7 @@ import Hero from './home/Hero'
 import TrustBadges from '../components/TrustBadges'
 import About from './home/About'
 import DigitalServices from './home/DigitalServices'
+import Portfolio from './home/Portfolio'
 import WhyChooseUs from './home/WhyChooseUs'
 import Gallery from './home/Gallery'
 import Contact from './home/Contact'
@@ -75,6 +76,7 @@ export default function Home() {
       <TrustBadges />
       <About />
       <DigitalServices />
+      <Portfolio />
 
       {/* সার্ভিস ক্যাটালগ - ক্যাটাগরি অনুযায়ী গ্রুপকৃত, অর্ডার করার জন্য */}
       <div className="py-20 px-4 bg-paper">
