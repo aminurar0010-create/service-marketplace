@@ -241,6 +241,18 @@ export interface AIPrompt {
   created_at: string
 }
 
+export interface PortfolioProject {
+  id: string
+  title: string
+  description?: string | null
+  category?: string | null
+  image_url?: string | null
+  live_url?: string | null
+  display_order: number
+  is_active: boolean
+  created_at: string
+}
+
 export interface InventoryItem {
   id: string
   name: string
