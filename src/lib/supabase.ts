@@ -44,6 +44,39 @@ export interface CustomFieldResponse {
   value: string
 }
 
+export interface ProductVariant {
+  id: string
+  service_id: string
+  variant_group: string
+  variant_value: string
+  price_delta: number
+  image_url?: string | null
+  is_active: boolean
+  display_order: number
+  created_at: string
+}
+
+export interface SelectedVariant {
+  group: string
+  value: string
+  price_delta: number
+}
+
+export interface CustomerOrderSummary {
+  phone: string
+  latest_name?: string | null
+  latest_email?: string | null
+  total_orders: number
+  total_spent: number
+  first_order_at: string
+  last_order_at: string
+  cancelled_orders: number
+  is_blocked: boolean | null
+  is_vip: boolean | null
+  tags: string[] | null
+  notes: string | null
+}
+
 export interface Order {
   id: string
   tracking_id: string
@@ -62,6 +95,7 @@ export interface Order {
   is_urgent?: boolean
   urgent_fee?: number
   custom_field_responses?: CustomFieldResponse[]
+  selected_variants?: SelectedVariant[]
   deadline_at?: string | null
   assigned_staff_id?: string
   customer_id?: string | null

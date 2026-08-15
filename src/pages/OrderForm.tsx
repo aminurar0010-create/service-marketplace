@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, Service, ServiceCustomField, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
+import { supabase, Service, ServiceCustomField, ProductVariant, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Upload, CheckCircle, Tag, X, Zap } from 'lucide-react'
 import DeliveryEstimate from '../components/DeliveryEstimate'
@@ -40,6 +40,11 @@ export default function OrderForm() {
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({})
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
 
+  // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার) সংক্রান্ত স্টেট
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [selectedVariantByGroup, setSelectedVariantByGroup] = useState<Record<string, ProductVariant>>({})
+  const [variantsLoading, setVariantsLoading] = useState(false)
+
   useEffect(() => {
     fetchServices()
   }, [])
@@ -59,7 +64,24 @@ export default function OrderForm() {
   }
 
   const selectedService = services.find((s) => s.id === formData.service_id)
-  const totalAmount = selectedService?.price || 0
+
+  // নির্বাচিত ভ্যারিয়েন্টগুলোর দামের পার্থক্য যোগ করে সাবটোটাল হিসাব
+  const variantsDelta = Object.values(selectedVariantByGroup).reduce(
+    (sum, v) => sum + (v.price_delta || 0),
+    0
+  )
+  const totalAmount = (selectedService?.price || 0) + variantsDelta
+
+  // ভ্যারিয়েন্টগুলোকে গ্রুপ অনুযায়ী সাজানো (যেমন: 'সাইজ' গ্রুপে XL, L, M)
+  const variantGroups = variants.reduce((acc: Record<string, ProductVariant[]>, v) => {
+    if (!acc[v.variant_group]) acc[v.variant_group] = []
+    acc[v.variant_group].push(v)
+    return acc
+  }, {})
+
+  // কোনো ভ্যারিয়েন্ট সিলেক্ট থাকলে তার ছবি, নাহলে সার্ভিসের ডিফল্ট ছবি
+  const previewImageUrl =
+    Object.values(selectedVariantByGroup).find((v) => v.image_url)?.image_url || selectedService?.image_url
 
   // এই সার্ভিসের জন্য urgent fee এর হিসাব (দেখানোর জন্য, চূড়ান্ত হিসাব সার্ভারে হবে)
   const estimatedUrgentFee = (() => {
@@ -74,13 +96,36 @@ export default function OrderForm() {
   useEffect(() => {
     setIsUrgent(false)
     setCustomFieldValues({})
+    setSelectedVariantByGroup({})
     if (!formData.service_id) {
       setCustomFields([])
+      setVariants([])
       return
     }
     fetchCustomFields(formData.service_id)
+    fetchVariants(formData.service_id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.service_id])
+
+  const fetchVariants = async (serviceId: string) => {
+    setVariantsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('service_id', serviceId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+
+      if (error) throw error
+      setVariants(data || [])
+    } catch (error) {
+      console.error('ভ্যারিয়েন্ট লোড ত্রুটি:', error)
+      setVariants([])
+    } finally {
+      setVariantsLoading(false)
+    }
+  }
 
   const fetchCustomFields = async (serviceId: string) => {
     setCustomFieldsLoading(true)
@@ -251,6 +296,19 @@ export default function OrderForm() {
         if (sessionData.session?.user) {
           await supabase.rpc('link_order_to_customer', { p_tracking_id: result.tracking_id })
         }
+
+        // নির্বাচিত ভ্যারিয়েন্ট থাকলে অর্ডারের সাথে সেভ করুন
+        const selectedVariantsList = Object.values(selectedVariantByGroup).map((v) => ({
+          group: v.variant_group,
+          value: v.variant_value,
+          price_delta: v.price_delta,
+        }))
+        if (selectedVariantsList.length > 0) {
+          await supabase.rpc('save_order_variants', {
+            p_tracking_id: result.tracking_id,
+            p_selected_variants: selectedVariantsList,
+          })
+        }
       }
 
       setTrackingId(result.tracking_id || '')
@@ -269,6 +327,7 @@ export default function OrderForm() {
       setCouponMessage(null)
       setIsUrgent(false)
       setCustomFieldValues({})
+      setSelectedVariantByGroup({})
     } catch (error) {
       console.error('অর্ডার সৃষ্টি ত্রুটি:', error)
       alert('অর্ডার তৈরি করতে ব্যর্থ। দয়া করে পরে চেষ্টা করুন।')
@@ -337,6 +396,55 @@ export default function OrderForm() {
             ))}
           </select>
         </div>
+
+        {/* প্রোডাক্ট ছবি প্রিভিউ — ভ্যারিয়েন্ট বদলালে ছবিও বদলাবে */}
+        {previewImageUrl && (
+          <div className="mb-6">
+            <img
+              src={previewImageUrl}
+              alt={selectedService?.name || ''}
+              className="w-full max-h-64 object-cover rounded-lg border border-gray-200"
+            />
+          </div>
+        )}
+
+        {/* প্রোডাক্ট ভ্যারিয়েন্ট নির্বাচন — সাইজ/কালার ইত্যাদি */}
+        {!variantsLoading && Object.keys(variantGroups).length > 0 && (
+          <div className="mb-6 space-y-4">
+            <p className="text-sm font-semibold text-gray-700">অপশন নির্বাচন করুন</p>
+            {Object.entries(variantGroups).map(([group, options]) => (
+              <div key={group}>
+                <label className="block text-sm font-semibold mb-2">{group}</label>
+                <div className="flex flex-wrap gap-2">
+                  {options.map((option) => {
+                    const isSelected = selectedVariantByGroup[group]?.id === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedVariantByGroup((prev) => ({ ...prev, [group]: option }))
+                        }
+                        className={`px-4 py-2 rounded-lg border text-sm font-semibold transition ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                        }`}
+                      >
+                        {option.variant_value}
+                        {option.price_delta !== 0 && (
+                          <span className={`ml-1 text-xs ${isSelected ? 'text-indigo-100' : 'text-gray-400'}`}>
+                            ({option.price_delta > 0 ? '+' : ''}৳{option.price_delta})
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* নাম */}
         <div className="mb-6">

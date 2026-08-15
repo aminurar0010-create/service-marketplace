@@ -38,12 +38,20 @@ export default function ServiceFormModal({
   >([])
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
 
+  // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার ইত্যাদি) সংক্রান্ত স্টেট
+  const [variants, setVariants] = useState<
+    { id?: string; variant_group: string; variant_value: string; price_delta: number; image_url: string }[]
+  >([])
+  const [variantsLoading, setVariantsLoading] = useState(false)
+  const [variantImageUploadingIndex, setVariantImageUploadingIndex] = useState<number | null>(null)
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (isEditing && service) {
       fetchExistingCustomFields(service.id)
+      fetchExistingVariants(service.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -88,6 +96,74 @@ export default function ServiceFormModal({
 
   const removeCustomField = (index: number) => {
     setCustomFields((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const fetchExistingVariants = async (serviceId: string) => {
+    setVariantsLoading(true)
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('service_id', serviceId)
+        .order('display_order', { ascending: true })
+
+      if (fetchError) throw fetchError
+
+      setVariants(
+        (data || []).map((v: any) => ({
+          id: v.id,
+          variant_group: v.variant_group,
+          variant_value: v.variant_value,
+          price_delta: v.price_delta,
+          image_url: v.image_url || '',
+        }))
+      )
+    } catch (err) {
+      console.error('ভ্যারিয়েন্ট লোড ত্রুটি:', err)
+    } finally {
+      setVariantsLoading(false)
+    }
+  }
+
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      { variant_group: '', variant_value: '', price_delta: 0, image_url: '' },
+    ])
+  }
+
+  const updateVariant = (index: number, patch: Partial<(typeof variants)[number]>) => {
+    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)))
+  }
+
+  const removeVariant = (index: number) => {
+    setVariants((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleVariantImageUpload = async (index: number, file: File) => {
+    if (!file.type.startsWith('image/')) return
+    if (file.size > 5 * 1024 * 1024) return
+
+    setVariantImageUploadingIndex(index)
+    try {
+      const ext = file.name.split('.').pop()
+      const filePath = `variants/${crypto.randomUUID()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('service-images')
+        .upload(filePath, file, { upsert: false })
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage
+        .from('service-images')
+        .getPublicUrl(filePath)
+
+      updateVariant(index, { image_url: publicUrlData.publicUrl })
+    } catch (err) {
+      console.error('ভ্যারিয়েন্ট ছবি আপলোড ত্রুটি:', err)
+    } finally {
+      setVariantImageUploadingIndex(null)
+    }
   }
 
   const handleImageUpload = async (file: File) => {
@@ -145,6 +221,12 @@ export default function ServiceFormModal({
     for (const field of customFields) {
       if (!field.field_label.trim()) {
         setError('প্রতিটি কাস্টম ফিল্ডের লেবেল আবশ্যক')
+        return
+      }
+    }
+    for (const variant of variants) {
+      if (!variant.variant_group.trim() || !variant.variant_value.trim()) {
+        setError('প্রতিটি ভ্যারিয়েন্টের গ্রুপ ও ভ্যালু আবশ্যক')
         return
       }
     }
@@ -207,6 +289,29 @@ export default function ServiceFormModal({
             .from('service_custom_fields')
             .insert(fieldsPayload)
           if (fieldsInsertError) throw fieldsInsertError
+        }
+
+        // ভ্যারিয়েন্ট সিঙ্ক করুন: একই পদ্ধতি — পুরনো সব মুছে নতুন করে ইনসার্ট
+        const { error: variantsDeleteError } = await supabase
+          .from('product_variants')
+          .delete()
+          .eq('service_id', serviceId)
+        if (variantsDeleteError) throw variantsDeleteError
+
+        if (variants.length > 0) {
+          const variantsPayload = variants.map((v, index) => ({
+            service_id: serviceId,
+            variant_group: v.variant_group.trim(),
+            variant_value: v.variant_value.trim(),
+            price_delta: v.price_delta,
+            image_url: v.image_url || null,
+            display_order: index,
+          }))
+
+          const { error: variantsInsertError } = await supabase
+            .from('product_variants')
+            .insert(variantsPayload)
+          if (variantsInsertError) throw variantsInsertError
         }
       }
 
@@ -473,13 +578,105 @@ export default function ServiceFormModal({
           )}
         </div>
 
+        {/* প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার/ম্যাটেরিয়াল) ক্যাটালগ */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-semibold">প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ, কালার ইত্যাদি)</span>
+            <button
+              type="button"
+              onClick={addVariant}
+              className="flex items-center gap-1 text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition font-semibold"
+            >
+              <Plus className="w-4 h-4" /> ভ্যারিয়েন্ট যোগ করুন
+            </button>
+          </div>
+
+          {variantsLoading ? (
+            <p className="text-sm text-gray-400">লোড হচ্ছে...</p>
+          ) : variants.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              এই প্রোডাক্টের সাইজ, কালার বা ম্যাটেরিয়ালের মতো ভিন্ন ভিন্ন অপশন থাকলে (প্রতিটার আলাদা দাম ও ছবিসহ) এখানে যোগ করুন। যেমন: T-shirt এর জন্য "সাইজ: XL" (+৳৫০) বা "কালার: লাল"।
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {variants.map((variant, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={variant.variant_group}
+                      onChange={(e) => updateVariant(index, { variant_group: e.target.value })}
+                      placeholder="গ্রুপ (যেমন: সাইজ)"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      value={variant.variant_value}
+                      onChange={(e) => updateVariant(index, { variant_value: e.target.value })}
+                      placeholder="ভ্যালু (যেমন: XL)"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 mb-1 block">দামের পার্থক্য (৳, বাড়াতে + বা কমাতে −)</label>
+                      <input
+                        type="number"
+                        value={variant.price_delta}
+                        onChange={(e) => updateVariant(index, { price_delta: Number(e.target.value) })}
+                        placeholder="0"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 mb-1 block">ভ্যারিয়েন্টের ছবি (ঐচ্ছিক)</label>
+                      <div className="flex items-center gap-2">
+                        {variant.image_url && (
+                          <img
+                            src={variant.image_url}
+                            alt={variant.variant_value}
+                            className="w-9 h-9 rounded object-cover border border-gray-200 flex-shrink-0"
+                          />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleVariantImageUpload(index, file)
+                          }}
+                          className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-600 file:font-semibold hover:file:bg-indigo-100"
+                        />
+                      </div>
+                      {variantImageUploadingIndex === index && (
+                        <p className="text-xs text-indigo-500 mt-1">আপলোড হচ্ছে...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            disabled={saving || imageUploading}
+            disabled={saving || imageUploading || variantImageUploadingIndex !== null}
             className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
           >
-            {saving ? 'সেভ হচ্ছে...' : imageUploading ? 'ছবি আপলোড হচ্ছে...' : 'সেভ করুন'}
+            {saving
+              ? 'সেভ হচ্ছে...'
+              : imageUploading || variantImageUploadingIndex !== null
+              ? 'ছবি আপলোড হচ্ছে...'
+              : 'সেভ করুন'}
           </button>
           <button
             onClick={onClose}
