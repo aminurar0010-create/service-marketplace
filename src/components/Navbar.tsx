@@ -95,20 +95,12 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
                 </button>
               </>
             ) : (
-              <>
-                <Link
-                  to="/account/login"
-                  className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition font-semibold`}
-                >
-                  আমার অ্যাকাউন্ট
-                </Link>
-                <Link
-                  to="/admin/login"
-                  className="bg-brass text-ink-900 px-4 py-2 rounded-lg hover:bg-brass-light transition font-semibold"
-                >
-                  অ্যাডমিন লগইন
-                </Link>
-              </>
+              <Link
+                to="/account/login"
+                className="bg-brass text-ink-900 px-4 py-2 rounded-lg hover:bg-brass-light transition font-semibold"
+              >
+                আমার অ্যাকাউন্ট
+              </Link>
             )}
           </div>
 
@@ -163,17 +155,12 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
                 </button>
               </>
             ) : (
-              <>
-                <Link to="/account/login" className="block text-white/90 hover:text-white py-2 font-semibold">
-                  আমার অ্যাকাউন্ট
-                </Link>
-                <Link
-                  to="/admin/login"
-                  className="block bg-brass text-ink-900 px-4 py-2 rounded text-center font-semibold mt-2"
-                >
-                  অ্যাডমিন লগইন
-                </Link>
-              </>
+              <Link
+                to="/account/login"
+                className="block bg-brass text-ink-900 px-4 py-2 rounded text-center font-semibold mt-2"
+              >
+                আমার অ্যাকাউন্ট
+              </Link>
             )}
           </div>
         )}
