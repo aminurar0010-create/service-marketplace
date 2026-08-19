@@ -21,6 +21,7 @@ import CustomerDashboard from './pages/CustomerDashboard'
 import Blog from './pages/Blog'
 import BlogPostPage from './pages/BlogPostPage'
 import PromptLibrary from './pages/PromptLibrary'
+import PortfolioDetailPage from './pages/PortfolioDetailPage'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/prompts" element={<PromptLibrary />} />
+          <Route path="/portfolio/:id" element={<PortfolioDetailPage />} />
 
           {/* কাস্টমার অ্যাকাউন্ট */}
           <Route
