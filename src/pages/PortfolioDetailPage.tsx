@@ -79,7 +79,7 @@ export default function PortfolioDetailPage() {
         )}
 
         {project.live_url && (
-          
+        <a  
             href={project.live_url}
             target="_blank"
             rel="noopener noreferrer"
