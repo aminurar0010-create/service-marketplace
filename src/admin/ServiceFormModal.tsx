@@ -32,6 +32,10 @@ export default function ServiceFormModal({
   const [urgentFeeValue, setUrgentFeeValue] = useState(service?.urgent_fee_value ?? 0)
   const [urgentDeliveryHours, setUrgentDeliveryHours] = useState(service?.urgent_delivery_hours ?? 24)
 
+  // বিকাশ-অনলি পেমেন্ট সংক্রান্ত স্টেট — সেট করলে এই সার্ভিসে শুধু বিকাশ (পার্সোনাল) দেখাবে + ট্রানজেকশন আইডি বাধ্যতামূলক হবে
+  const [bkashOnlyEnabled, setBkashOnlyEnabled] = useState(!!service?.payment_bkash_number)
+  const [bkashNumber, setBkashNumber] = useState(service?.payment_bkash_number || '')
+
   // কাস্টম রিকোয়ারমেন্ট ফিল্ড সংক্রান্ত স্টেট
   const [customFields, setCustomFields] = useState<
     { id?: string; field_label: string; field_type: string; options: string; is_required: boolean }[]
@@ -218,6 +222,10 @@ export default function ServiceFormModal({
       setError('জরুরি ফি ০ এর বেশি হতে হবে')
       return
     }
+    if (bkashOnlyEnabled && !bkashNumber.trim()) {
+      setError('বিকাশ পার্সোনাল নম্বরটি দিন')
+      return
+    }
     for (const field of customFields) {
       if (!field.field_label.trim()) {
         setError('প্রতিটি কাস্টম ফিল্ডের লেবেল আবশ্যক')
@@ -244,6 +252,7 @@ export default function ServiceFormModal({
         urgent_fee_type: urgentEnabled ? urgentFeeType : null,
         urgent_fee_value: urgentEnabled ? urgentFeeValue : null,
         urgent_delivery_hours: urgentEnabled ? urgentDeliveryHours : null,
+        payment_bkash_number: bkashOnlyEnabled ? bkashNumber.trim() : null,
       }
 
       let serviceId = service?.id
@@ -498,6 +507,36 @@ export default function ServiceFormModal({
                   গ্রাহক "জরুরি" বেছে নিলে এই সময়ের মধ্যে ডেলিভারি ডেডলাইন সেট হবে
                 </p>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* বিকাশ-অনলি পেমেন্ট সেকশন — শুধু এই সার্ভিসের জন্য নির্দিষ্ট পার্সোনাল বিকাশ নম্বরে পেমেন্ট বাধ্যতামূলক করুন */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <label className="flex items-center gap-2 cursor-pointer mb-3">
+            <input
+              type="checkbox"
+              checked={bkashOnlyEnabled}
+              onChange={(e) => setBkashOnlyEnabled(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span className="font-semibold">শুধুমাত্র বিকাশ (পার্সোনাল) পেমেন্ট বাধ্যতামূলক করুন</span>
+          </label>
+
+          {bkashOnlyEnabled && (
+            <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+              <label className="block text-sm font-semibold mb-2">বিকাশ পার্সোনাল নম্বর</label>
+              <input
+                type="text"
+                value={bkashNumber}
+                onChange={(e) => setBkashNumber(e.target.value)}
+                placeholder="01968673241"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="text-xs text-pink-700 mt-1">
+                চালু করলে অর্ডার ফর্মে নগদ/রকেট অপশন হাইড হয়ে যাবে, শুধু এই নম্বরটি দেখানো হবে এবং গ্রাহককে
+                বিকাশ ট্রানজেকশন আইডি দেওয়া বাধ্যতামূলক হবে।
+              </p>
             </div>
           )}
         </div>

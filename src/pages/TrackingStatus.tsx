@@ -239,6 +239,12 @@ export default function TrackingStatus() {
                         {order.payment_method === 'rocket' && 'রকেট'}
                       </span>
                     </div>
+                    {order.transaction_id && (
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">ট্রানজেকশন আইডি:</span>
+                        <span className="font-mono">{order.transaction_id}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">পেমেন্ট অবস্থা:</span>
                       <span

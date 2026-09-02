@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, Service, ServiceCustomField, ProductVariant, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Upload, CheckCircle, Tag, X, Zap } from 'lucide-react'
+import { Upload, CheckCircle, Tag, X, Zap, Copy, Check } from 'lucide-react'
 import DeliveryEstimate from '../components/DeliveryEstimate'
 
 export default function OrderForm() {
@@ -34,6 +34,10 @@ export default function OrderForm() {
 
   // জরুরি (urgent) ডেলিভারি সংক্রান্ত স্টেট
   const [isUrgent, setIsUrgent] = useState(false)
+
+  // বিকাশ ট্রানজেকশন আইডি সংক্রান্ত স্টেট (শুধু যেসব সার্ভিসে বিকাশ-অনলি পেমেন্ট সেট করা আছে)
+  const [transactionId, setTransactionId] = useState('')
+  const [numberCopied, setNumberCopied] = useState(false)
 
   // কাস্টম রিকোয়ারমেন্ট ফিল্ড সংক্রান্ত স্টেট
   const [customFields, setCustomFields] = useState<ServiceCustomField[]>([])
@@ -97,6 +101,7 @@ export default function OrderForm() {
     setIsUrgent(false)
     setCustomFieldValues({})
     setSelectedVariantByGroup({})
+    setTransactionId('')
     if (!formData.service_id) {
       setCustomFields([])
       setVariants([])
@@ -106,6 +111,14 @@ export default function OrderForm() {
     fetchVariants(formData.service_id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.service_id])
+
+  // এই সার্ভিসে বিকাশ-অনলি পেমেন্ট বাধ্যতামূলক থাকলে পেমেন্ট মেথড স্বয়ংক্রিয়ভাবে 'bkash' এ লক করে দিন
+  useEffect(() => {
+    if (selectedService?.payment_bkash_number && formData.payment_method !== 'bkash') {
+      setFormData((prev) => ({ ...prev, payment_method: 'bkash' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService?.payment_bkash_number])
 
   const fetchVariants = async (serviceId: string) => {
     setVariantsLoading(true)
@@ -238,6 +251,12 @@ export default function OrderForm() {
       }
     }
 
+    // বিকাশ-অনলি সার্ভিসে ট্রানজেকশন আইডি বাধ্যতামূলক
+    if (selectedService?.payment_bkash_number && !transactionId.trim()) {
+      alert('দয়া করে বিকাশ ট্রানজেকশন আইডি দিন')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -309,6 +328,14 @@ export default function OrderForm() {
             p_selected_variants: selectedVariantsList,
           })
         }
+
+        // বিকাশ ট্রানজেকশন আইডি থাকলে অর্ডারের সাথে সেভ করুন
+        if (transactionId.trim()) {
+          await supabase.rpc('set_order_transaction_id', {
+            p_tracking_id: result.tracking_id,
+            p_transaction_id: transactionId.trim(),
+          })
+        }
       }
 
       setTrackingId(result.tracking_id || '')
@@ -328,6 +355,7 @@ export default function OrderForm() {
       setIsUrgent(false)
       setCustomFieldValues({})
       setSelectedVariantByGroup({})
+      setTransactionId('')
     } catch (error) {
       console.error('অর্ডার সৃষ্টি ত্রুটি:', error)
       alert('অর্ডার তৈরি করতে ব্যর্থ। দয়া করে পরে চেষ্টা করুন।')
@@ -585,24 +613,69 @@ export default function OrderForm() {
         {/* পেমেন্ট পদ্ধতি */}
         <div className="mb-6">
           <label className="block text-sm font-semibold mb-2">পেমেন্ট পদ্ধতি *</label>
-          <div className="space-y-2">
-            {['bkash', 'nagad', 'rocket'].map((method) => (
-              <label key={method} className="flex items-center gap-2 cursor-pointer">
+
+          {selectedService?.payment_bkash_number ? (
+            <div className="bg-pink-50 border border-pink-300 rounded-lg p-4 space-y-3">
+              <p className="text-sm text-pink-800">
+                এই সেবার জন্য পেমেন্ট শুধুমাত্র <span className="font-semibold">বিকাশ (পার্সোনাল)</span> নম্বরে
+                গ্রহণযোগ্য।
+              </p>
+              <div className="flex items-center justify-between bg-white border border-pink-200 rounded-lg px-4 py-3">
+                <div>
+                  <p className="text-xs text-gray-500">বিকাশ পার্সোনাল নম্বর</p>
+                  <p className="text-lg font-bold text-pink-700 font-mono">
+                    {selectedService.payment_bkash_number}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedService.payment_bkash_number || '')
+                    setNumberCopied(true)
+                    setTimeout(() => setNumberCopied(false), 2000)
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-pink-600 text-white text-sm font-semibold rounded-lg hover:bg-pink-700 transition"
+                >
+                  {numberCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {numberCopied ? 'কপি হয়েছে' : 'কপি করুন'}
+                </button>
+              </div>
+              <p className="text-xs text-pink-700">
+                উপরের নম্বরে "Send Money" করে নিচে ট্রানজেকশন আইডি দিন, তারপর অর্ডার সাবমিট করুন।
+              </p>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">বিকাশ ট্রানজেকশন আইডি *</label>
                 <input
-                  type="radio"
-                  name="payment"
-                  value={method}
-                  checked={formData.payment_method === method}
-                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                  type="text"
+                  required
+                  value={transactionId}
+                  onChange={(e) => setTransactionId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent uppercase"
+                  placeholder="যেমনঃ 9G7H8J2K1L"
                 />
-                <span className="font-semibold">
-                  {method === 'bkash' && 'বিকাশ'}
-                  {method === 'nagad' && 'নগদ'}
-                  {method === 'rocket' && 'রকেট'}
-                </span>
-              </label>
-            ))}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {['bkash', 'nagad', 'rocket'].map((method) => (
+                <label key={method} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value={method}
+                    checked={formData.payment_method === method}
+                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                  />
+                  <span className="font-semibold">
+                    {method === 'bkash' && 'বিকাশ'}
+                    {method === 'nagad' && 'নগদ'}
+                    {method === 'rocket' && 'রকেট'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ডকুমেন্ট আপলোড */}

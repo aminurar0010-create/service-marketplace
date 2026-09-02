@@ -24,6 +24,8 @@ export interface Service {
   urgent_fee_type?: 'fixed' | 'percentage' | null
   urgent_fee_value?: number | null
   urgent_delivery_hours?: number | null
+  // সেট করা থাকলে এই সার্ভিসে শুধুমাত্র বিকাশ (পার্সোনাল) পেমেন্ট দেখানো হবে এবং ট্রানজেকশন আইডি বাধ্যতামূলক হবে
+  payment_bkash_number?: string | null
   created_at: string
 }
 
@@ -87,6 +89,7 @@ export interface Order {
   documents?: any[]
   status: 'pending' | 'processing' | 'completed' | 'cancelled'
   payment_method?: string
+  transaction_id?: string | null
   payment_status: 'unpaid' | 'paid' | 'refunded'
   total_amount: number
   coupon_code?: string | null

@@ -64,6 +64,11 @@ function MemoSlip({ order, getServiceName }: { order: any; getServiceName: (id: 
           <div>
             <strong>অবস্থা:</strong> {paymentStatusLabel(order.payment_status)}
           </div>
+          {order.transaction_id && (
+            <div>
+              <strong>ট্রানজেকশন আইডি:</strong> {order.transaction_id}
+            </div>
+          )}
         </div>
       </div>
 

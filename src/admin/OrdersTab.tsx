@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X } from 'lucide-react'
+import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrderMemoModal from './OrderMemoModal'
+import OrderDetailModal from './OrderDetailModal'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
   const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
 
   const [memoOrders, setMemoOrders] = useState<any[] | null>(null)
+  const [detailOrder, setDetailOrder] = useState<any | null>(null)
 
   const getPaymentColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -205,6 +207,13 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                             <div className="flex items-center gap-2">
                               {order.tracking_id}
                               <button
+                                onClick={() => setDetailOrder(order)}
+                                title="বিস্তারিত দেখুন (কাস্টম তথ্য, ডকুমেন্ট, ট্রানজেকশন আইডি)"
+                                className="text-gray-400 hover:text-indigo-600 transition"
+                              >
+                                <Eye size={15} />
+                              </button>
+                              <button
                                 onClick={() => setMemoOrders([order])}
                                 title="মেমো প্রিন্ট করুন"
                                 className="text-gray-400 hover:text-green-600 transition"
@@ -305,6 +314,14 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                 orders={memoOrders}
                 getServiceName={getServiceName}
                 onClose={() => setMemoOrders(null)}
+              />
+            )}
+
+            {detailOrder && (
+              <OrderDetailModal
+                order={detailOrder}
+                getServiceName={getServiceName}
+                onClose={() => setDetailOrder(null)}
               />
             )}
           </>
