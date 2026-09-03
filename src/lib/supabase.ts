@@ -29,6 +29,25 @@ export interface Service {
   created_at: string
 }
 
+export interface ServiceChecklistItem {
+  id: string
+  service_id: string
+  label: string
+  display_order: number
+  created_at: string
+}
+
+export interface OrderChecklistItem {
+  id: string
+  order_id: string
+  label: string
+  is_checked: boolean
+  display_order: number
+  checked_at?: string | null
+  checked_by?: string | null
+  created_at: string
+}
+
 export interface ServiceCustomField {
   id: string
   service_id: string
@@ -87,7 +106,8 @@ export interface Order {
   customer_phone: string
   customer_email?: string
   documents?: any[]
-  status: 'pending' | 'processing' | 'completed' | 'cancelled'
+  status: 'pending' | 'documents_pending' | 'ready' | 'processing' | 'waiting' | 'quality_check' | 'completed' | 'delivered' | 'cancelled' | 'rejected' | 'on_hold'
+  priority?: 'low' | 'normal' | 'important' | 'urgent'
   payment_method?: string
   transaction_id?: string | null
   payment_status: 'unpaid' | 'paid' | 'refunded'

@@ -3,9 +3,16 @@ import { Order } from './supabase'
 const statusLabel = (status: string) => {
   const labels: Record<string, string> = {
     pending: 'অপেক্ষমান',
+    documents_pending: 'ডকুমেন্ট বাকি',
+    ready: 'প্রস্তুত',
     processing: 'প্রসেসিং চলছে',
+    waiting: 'অপেক্ষমাণ',
+    quality_check: 'কোয়ালিটি চেক',
     completed: 'সম্পন্ন',
+    delivered: 'ডেলিভার হয়েছে',
     cancelled: 'বাতিল',
+    rejected: 'প্রত্যাখ্যাত',
+    on_hold: 'হোল্ডে আছে',
   }
   return labels[status] || status
 }

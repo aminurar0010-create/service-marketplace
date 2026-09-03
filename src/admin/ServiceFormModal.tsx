@@ -42,6 +42,10 @@ export default function ServiceFormModal({
   >([])
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
 
+  // চেকলিস্ট টেমপ্লেট সংক্রান্ত স্টেট — অর্ডার প্রসেস করার সময় ধাপে ধাপে টিক দেওয়ার জন্য
+  const [checklistItems, setChecklistItems] = useState<{ id?: string; label: string }[]>([])
+  const [checklistLoading, setChecklistLoading] = useState(false)
+
   // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার ইত্যাদি) সংক্রান্ত স্টেট
   const [variants, setVariants] = useState<
     { id?: string; variant_group: string; variant_value: string; price_delta: number; image_url: string }[]
@@ -56,9 +60,41 @@ export default function ServiceFormModal({
     if (isEditing && service) {
       fetchExistingCustomFields(service.id)
       fetchExistingVariants(service.id)
+      fetchExistingChecklist(service.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const fetchExistingChecklist = async (serviceId: string) => {
+    setChecklistLoading(true)
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('service_checklist_items')
+        .select('*')
+        .eq('service_id', serviceId)
+        .order('display_order', { ascending: true })
+
+      if (fetchError) throw fetchError
+
+      setChecklistItems((data || []).map((c: any) => ({ id: c.id, label: c.label })))
+    } catch (err) {
+      console.error('চেকলিস্ট লোড ত্রুটি:', err)
+    } finally {
+      setChecklistLoading(false)
+    }
+  }
+
+  const addChecklistItem = () => {
+    setChecklistItems((prev) => [...prev, { label: '' }])
+  }
+
+  const updateChecklistItem = (index: number, label: string) => {
+    setChecklistItems((prev) => prev.map((c, i) => (i === index ? { ...c, label } : c)))
+  }
+
+  const removeChecklistItem = (index: number) => {
+    setChecklistItems((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const fetchExistingCustomFields = async (serviceId: string) => {
     setCustomFieldsLoading(true)
@@ -300,6 +336,30 @@ export default function ServiceFormModal({
           if (fieldsInsertError) throw fieldsInsertError
         }
 
+        // চেকলিস্ট টেমপ্লেট সিঙ্ক করুন — একই পদ্ধতি: পুরনো টেমপ্লেট মুছে নতুন করে ইনসার্ট।
+        // (এটা শুধু টেমপ্লেট টেবিল; ইতিমধ্যে চলমান অর্ডারগুলোর নিজস্ব চেকলিস্ট কপি
+        //  আলাদা টেবিলে (order_checklist_items) থাকায় এখানে পরিবর্তন করলে পুরনো অর্ডারের
+        //  প্রোগ্রেস মুছে যাবে না)
+        const { error: checklistDeleteError } = await supabase
+          .from('service_checklist_items')
+          .delete()
+          .eq('service_id', serviceId)
+        if (checklistDeleteError) throw checklistDeleteError
+
+        const validChecklistItems = checklistItems.filter((c) => c.label.trim())
+        if (validChecklistItems.length > 0) {
+          const checklistPayload = validChecklistItems.map((c, index) => ({
+            service_id: serviceId,
+            label: c.label.trim(),
+            display_order: index,
+          }))
+
+          const { error: checklistInsertError } = await supabase
+            .from('service_checklist_items')
+            .insert(checklistPayload)
+          if (checklistInsertError) throw checklistInsertError
+        }
+
         // ভ্যারিয়েন্ট সিঙ্ক করুন: একই পদ্ধতি — পুরনো সব মুছে নতুন করে ইনসার্ট
         const { error: variantsDeleteError } = await supabase
           .from('product_variants')
@@ -537,6 +597,51 @@ export default function ServiceFormModal({
                 চালু করলে অর্ডার ফর্মে নগদ/রকেট অপশন হাইড হয়ে যাবে, শুধু এই নম্বরটি দেখানো হবে এবং গ্রাহককে
                 বিকাশ ট্রানজেকশন আইডি দেওয়া বাধ্যতামূলক হবে।
               </p>
+            </div>
+          )}
+        </div>
+
+        {/* চেকলিস্ট টেমপ্লেট — এই সার্ভিসের অর্ডার প্রসেস করার সময় ধাপে ধাপে টিক দেওয়ার তালিকা */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="font-semibold">প্রসেসিং চেকলিস্ট (ঐচ্ছিক)</label>
+            <button
+              type="button"
+              onClick={addChecklistItem}
+              className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-semibold"
+            >
+              <Plus size={16} /> ধাপ যোগ করুন
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            এই সার্ভিসের অর্ডার প্রসেস করার সময় কী কী ধাপ শেষ করতে হবে তা এখানে লিখুন — অর্ডার
+            ডিটেইলে গিয়ে প্রতিটা ধাপ টিক দেওয়া যাবে (যেমনঃ তথ্য যাচাই, ডকুমেন্ট ভেরিফাই, আবেদন জমা)।
+          </p>
+          {checklistLoading ? (
+            <p className="text-sm text-gray-400">লোড হচ্ছে...</p>
+          ) : checklistItems.length === 0 ? (
+            <p className="text-sm text-gray-400">কোনো চেকলিস্ট ধাপ যোগ করা হয়নি</p>
+          ) : (
+            <div className="space-y-2">
+              {checklistItems.map((item, index) => (
+                <div key={item.id || index} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-5">{index + 1}.</span>
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => updateChecklistItem(index, e.target.value)}
+                    placeholder="যেমনঃ তথ্য যাচাই করা হয়েছে"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeChecklistItem(index)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -8,6 +8,7 @@ import {
   DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
+import TodayDashboard from '../admin/TodayDashboard'
 import ServicesTab from '../admin/ServicesTab'
 import StaffTab from '../admin/StaffTab'
 import CouponsTab from '../admin/CouponsTab'
@@ -32,7 +33,7 @@ import PortfolioTab from '../admin/PortfolioTab'
 import CustomerLedgerTab from '../admin/CustomerLedgerTab'
 import LeadsTab from '../admin/LeadsTab'
 
-type Tab = 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads'
 
 interface NavItem {
   id: Tab
@@ -51,7 +52,7 @@ interface StatCard {
 }
 
 export default function AdminDashboardV2({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState<Tab>('orders')
+  const [activeTab, setActiveTab] = useState<Tab>('today')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [, setMobileMenuOpen] = useState(false)
 
@@ -157,8 +158,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
         const overdueOrders = ordersData.filter(
           (o) =>
             o.deadline_at &&
-            o.status !== 'completed' &&
-            o.status !== 'cancelled' &&
+            !['completed', 'cancelled', 'delivered', 'rejected'].includes(o.status) &&
             new Date(o.deadline_at) < now
         ).length
 
@@ -270,9 +270,16 @@ export default function AdminDashboardV2({ user }: { user: any }) {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
+      documents_pending: 'bg-orange-100 text-orange-800',
+      ready: 'bg-cyan-100 text-cyan-800',
       processing: 'bg-blue-100 text-blue-800',
+      waiting: 'bg-purple-100 text-purple-800',
+      quality_check: 'bg-indigo-100 text-indigo-800',
       completed: 'bg-green-100 text-green-800',
+      delivered: 'bg-emerald-100 text-emerald-800',
       cancelled: 'bg-red-100 text-red-800',
+      rejected: 'bg-red-100 text-red-800',
+      on_hold: 'bg-gray-200 text-gray-700',
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
@@ -280,15 +287,43 @@ export default function AdminDashboardV2({ user }: { user: any }) {
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       pending: 'অপেক্ষায়',
+      documents_pending: 'ডকুমেন্ট বাকি',
+      ready: 'প্রস্তুত',
       processing: 'প্রক্রিয়াধীন',
+      waiting: 'অপেক্ষমাণ',
+      quality_check: 'কোয়ালিটি চেক',
       completed: 'সম্পন্ন',
+      delivered: 'ডেলিভার হয়েছে',
       cancelled: 'বাতিল',
+      rejected: 'প্রত্যাখ্যাত',
+      on_hold: 'হোল্ডে আছে',
     }
     return labels[status] || status
   }
 
+  const getPriorityColor = (priority?: string) => {
+    const colors: Record<string, string> = {
+      low: 'bg-gray-100 text-gray-600',
+      normal: 'bg-blue-50 text-blue-700',
+      important: 'bg-orange-100 text-orange-800',
+      urgent: 'bg-red-100 text-red-800',
+    }
+    return colors[priority || 'normal'] || colors.normal
+  }
+
+  const getPriorityLabel = (priority?: string) => {
+    const labels: Record<string, string> = {
+      low: 'কম',
+      normal: 'সাধারণ',
+      important: 'গুরুত্বপূর্ণ',
+      urgent: 'জরুরি',
+    }
+    return labels[priority || 'normal'] || 'সাধারণ'
+  }
+
   const getDeadlineInfo = (order: Order) => {
-    if (!order.deadline_at || order.status === 'completed' || order.status === 'cancelled') {
+    const finishedStatuses = ['completed', 'cancelled', 'delivered', 'rejected']
+    if (!order.deadline_at || finishedStatuses.includes(order.status)) {
       return null
     }
     const deadline = new Date(order.deadline_at)
@@ -315,6 +350,16 @@ export default function AdminDashboardV2({ user }: { user: any }) {
       fetchData()
     } catch (error) {
       console.error('অর্ডার আপডেট ত্রুটি:', error)
+    }
+  }
+
+  const updateOrderPriority = async (orderId: string, newPriority: string) => {
+    try {
+      await supabase.from('orders').update({ priority: newPriority }).eq('id', orderId)
+      logActivity('অর্ডার প্রায়োরিটি পরিবর্তন করেছেন', 'order', orderId, { priority: newPriority })
+      fetchData()
+    } catch (error) {
+      console.error('প্রায়োরিটি আপডেট ত্রুটি:', error)
     }
   }
 
@@ -354,8 +399,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
         if (
           o.assigned_staff_id &&
           workload[o.assigned_staff_id] !== undefined &&
-          o.status !== 'completed' &&
-          o.status !== 'cancelled'
+          !['completed', 'cancelled', 'delivered', 'rejected'].includes(o.status)
         ) {
           workload[o.assigned_staff_id]++
         }
@@ -576,7 +620,8 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     setMessagesLoading, sendingMessage, setSendingMessage, selectedStaffId, setSelectedStaffId,
     messageText, setMessageText, logActivity, stats, assigningOrderId,
     getServiceName, getStatusColor, getStatusLabel, getDeadlineInfo,
-    updateOrderStatus, updateOrderPaymentStatus, assignStaff, autoAssignStaff,
+    getPriorityColor, getPriorityLabel,
+    updateOrderStatus, updateOrderPriority, updateOrderPaymentStatus, assignStaff, autoAssignStaff,
     toggleSelectOrder, toggleSelectAllOrders, clearSelection,
     bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
     toggleServiceActive, deleteService, toggleRole,
@@ -586,6 +631,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
   }
 
   const navItems: NavItem[] = [
+    { id: 'today', label: 'আজকের কাজ', icon: Sparkles },
     { id: 'orders', label: 'অর্ডার ও পরিসংখ্যান', icon: Package },
     { id: 'services', label: 'সার্ভিস ম্যানেজমেন্ট', icon: Layers },
     { id: 'staff', label: 'স্টাফ ম্যানেজমেন্ট', icon: Users },
@@ -738,6 +784,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
           )}
 
           {/* ট্যাব কন্টেন্ট */}
+          {activeTab === 'today' && <TodayDashboard ctx={ctx} />}
           {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
           {activeTab === 'services' && <ServicesTab ctx={ctx} />}
           {activeTab === 'staff' && <StaffTab ctx={ctx} />}

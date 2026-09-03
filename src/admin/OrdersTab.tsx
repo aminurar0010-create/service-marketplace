@@ -6,7 +6,7 @@ import OrderMemoModal from './OrderMemoModal'
 import OrderDetailModal from './OrderDetailModal'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
-  const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
+  const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, updateOrderPriority, getPriorityColor, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
 
   const [memoOrders, setMemoOrders] = useState<any[] | null>(null)
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
@@ -120,8 +120,15 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                     >
                       <option value="">স্ট্যাটাস নির্বাচন করুন</option>
                       <option value="pending">অপেক্ষায়</option>
+                      <option value="documents_pending">ডকুমেন্ট বাকি</option>
+                      <option value="ready">প্রস্তুত</option>
                       <option value="processing">প্রক্রিয়াধীন</option>
+                      <option value="waiting">অপেক্ষমাণ</option>
+                      <option value="quality_check">কোয়ালিটি চেক</option>
                       <option value="completed">সম্পন্ন</option>
+                      <option value="delivered">ডেলিভার হয়েছে</option>
+                      <option value="on_hold">হোল্ডে আছে</option>
+                      <option value="rejected">প্রত্যাখ্যাত</option>
                       <option value="cancelled">বাতিল</option>
                     </select>
                     <button
@@ -179,6 +186,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিমাণ</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পেমেন্ট</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অবস্থা</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">প্রায়োরিটি</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ডেডলাইন</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাসাইন করা স্টাফ</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">সময়</th>
@@ -248,6 +256,18 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                             </span>
                           </td>
                           <td className="px-6 py-4">
+                            <select
+                              value={order.priority || 'normal'}
+                              onChange={(e) => updateOrderPriority(order.id, e.target.value)}
+                              className={`px-2 py-1 rounded-full text-xs font-semibold border-0 outline-none cursor-pointer ${getPriorityColor(order.priority)}`}
+                            >
+                              <option value="low">কম</option>
+                              <option value="normal">সাধারণ</option>
+                              <option value="important">গুরুত্বপূর্ণ</option>
+                              <option value="urgent">জরুরি</option>
+                            </select>
+                          </td>
+                          <td className="px-6 py-4">
                             {(() => {
                               const info = getDeadlineInfo(order)
                               if (!info) return <span className="text-gray-300 text-sm">-</span>
@@ -296,8 +316,15 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                               className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                             >
                               <option value="pending">অপেক্ষায়</option>
+                              <option value="documents_pending">ডকুমেন্ট বাকি</option>
+                              <option value="ready">প্রস্তুত</option>
                               <option value="processing">প্রক্রিয়াধীন</option>
+                              <option value="waiting">অপেক্ষমাণ</option>
+                              <option value="quality_check">কোয়ালিটি চেক</option>
                               <option value="completed">সম্পন্ন</option>
+                              <option value="delivered">ডেলিভার হয়েছে</option>
+                              <option value="on_hold">হোল্ডে আছে</option>
+                              <option value="rejected">প্রত্যাখ্যাত</option>
                               <option value="cancelled">বাতিল</option>
                             </select>
                           </td>

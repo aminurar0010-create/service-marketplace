@@ -156,9 +156,16 @@ export default function StaffDashboard({ user }: { user: any }) {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
+      documents_pending: 'bg-orange-100 text-orange-800',
+      ready: 'bg-cyan-100 text-cyan-800',
       processing: 'bg-blue-100 text-blue-800',
+      waiting: 'bg-purple-100 text-purple-800',
+      quality_check: 'bg-indigo-100 text-indigo-800',
       completed: 'bg-green-100 text-green-800',
+      delivered: 'bg-emerald-100 text-emerald-800',
       cancelled: 'bg-red-100 text-red-800',
+      rejected: 'bg-red-100 text-red-800',
+      on_hold: 'bg-gray-200 text-gray-700',
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
@@ -166,15 +173,23 @@ export default function StaffDashboard({ user }: { user: any }) {
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       pending: 'অপেক্ষায়',
+      documents_pending: 'ডকুমেন্ট বাকি',
+      ready: 'প্রস্তুত',
       processing: 'প্রক্রিয়াধীন',
+      waiting: 'অপেক্ষমাণ',
+      quality_check: 'কোয়ালিটি চেক',
       completed: 'সম্পন্ন',
+      delivered: 'ডেলিভার হয়েছে',
       cancelled: 'বাতিল',
+      rejected: 'প্রত্যাখ্যাত',
+      on_hold: 'হোল্ডে আছে',
     }
     return labels[status] || status
   }
 
   const getDeadlineInfo = (order: Order) => {
-    if (!order.deadline_at || order.status === 'completed' || order.status === 'cancelled') {
+    const finishedStatuses = ['completed', 'cancelled', 'delivered', 'rejected']
+    if (!order.deadline_at || finishedStatuses.includes(order.status)) {
       return null
     }
     const deadline = new Date(order.deadline_at)
@@ -195,7 +210,7 @@ export default function StaffDashboard({ user }: { user: any }) {
   }
 
   const activeWorkload = orders.filter(
-    (o) => o.status === 'pending' || o.status === 'processing'
+    (o) => !['completed', 'cancelled', 'delivered', 'rejected'].includes(o.status)
   ).length
 
   const overdueCount = orders.filter((o) => {
@@ -204,7 +219,7 @@ export default function StaffDashboard({ user }: { user: any }) {
   }).length
 
   const totalCommission = orders
-    .filter((o) => o.status === 'completed')
+    .filter((o) => ['completed', 'delivered'].includes(o.status))
     .reduce((sum, o) => sum + (o.commission_amount || 0), 0)
 
   useEffect(() => {
@@ -403,8 +418,14 @@ export default function StaffDashboard({ user }: { user: any }) {
                           className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                         >
                           <option value="pending">অপেক্ষায়</option>
+                          <option value="documents_pending">ডকুমেন্ট বাকি</option>
+                          <option value="ready">প্রস্তুত</option>
                           <option value="processing">প্রক্রিয়াধীন</option>
+                          <option value="waiting">অপেক্ষমাণ</option>
+                          <option value="quality_check">কোয়ালিটি চেক</option>
                           <option value="completed">সম্পন্ন</option>
+                          <option value="delivered">ডেলিভার হয়েছে</option>
+                          <option value="on_hold">হোল্ডে আছে</option>
                           <option value="cancelled">বাতিল</option>
                         </select>
                       </td>

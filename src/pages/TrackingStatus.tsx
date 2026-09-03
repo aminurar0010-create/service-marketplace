@@ -94,12 +94,21 @@ export default function TrackingStatus() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
+      case 'documents_pending':
         return 'text-yellow-600'
+      case 'ready':
+        return 'text-cyan-600'
       case 'processing':
         return 'text-blue-600'
+      case 'waiting':
+        return 'text-purple-600'
+      case 'quality_check':
+        return 'text-indigo-600'
       case 'completed':
+      case 'delivered':
         return 'text-green-600'
       case 'cancelled':
+      case 'rejected':
         return 'text-red-600'
       default:
         return 'text-gray-600'
@@ -110,12 +119,26 @@ export default function TrackingStatus() {
     switch (status) {
       case 'pending':
         return 'অপেক্ষায়'
+      case 'documents_pending':
+        return 'ডকুমেন্ট বাকি'
+      case 'ready':
+        return 'প্রস্তুত'
       case 'processing':
         return 'প্রক্রিয়াধীন'
+      case 'waiting':
+        return 'অপেক্ষমাণ'
+      case 'quality_check':
+        return 'কোয়ালিটি চেক হচ্ছে'
       case 'completed':
         return 'সম্পন্ন'
+      case 'delivered':
+        return 'ডেলিভার হয়েছে'
       case 'cancelled':
         return 'বাতিল'
+      case 'rejected':
+        return 'প্রত্যাখ্যাত'
+      case 'on_hold':
+        return 'হোল্ডে আছে'
       default:
         return 'অজানা'
     }
@@ -124,10 +147,15 @@ export default function TrackingStatus() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
+      case 'delivered':
         return <CheckCircle className="w-8 h-8 text-green-600" />
       case 'processing':
+      case 'ready':
+      case 'waiting':
+      case 'quality_check':
         return <Clock className="w-8 h-8 text-blue-600" />
       case 'pending':
+      case 'documents_pending':
         return <AlertCircle className="w-8 h-8 text-yellow-600" />
       default:
         return <AlertCircle className="w-8 h-8 text-gray-600" />
@@ -271,7 +299,7 @@ export default function TrackingStatus() {
                 </div>
 
                 {/* রিভিউ ফর্ম — শুধু সম্পন্ন অর্ডারের জন্য */}
-                {order.status === 'completed' && (
+                {(order.status === 'completed' || order.status === 'delivered') && (
                   <div className="mt-8 pt-8 border-t border-gray-200">
                     <h3 className="text-xl font-bold mb-4">আপনার অভিজ্ঞতা শেয়ার করুন</h3>
                     {reviewResult?.success ? (

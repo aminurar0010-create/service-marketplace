@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { X, FileText, Copy, Check, ExternalLink } from 'lucide-react'
+import { X, FileText, Copy, Check, ExternalLink, ListChecks } from 'lucide-react'
 
 const paymentLabel = (m?: string) => {
   const map: Record<string, string> = {
@@ -24,6 +24,8 @@ export default function OrderDetailModal({
   const [docLinks, setDocLinks] = useState<Record<string, string>>({})
   const [docLoading, setDocLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [checklist, setChecklist] = useState<any[]>([])
+  const [checklistLoading, setChecklistLoading] = useState(false)
 
   useEffect(() => {
     const loadDocs = async () => {
@@ -47,6 +49,73 @@ export default function OrderDetailModal({
     }
     loadDocs()
   }, [order])
+
+  // অর্ডারের চেকলিস্ট লোড করুন — প্রথমবার খোলা হলে সার্ভিস টেমপ্লেট থেকে কপি করে
+  // order_checklist_items এ বসিয়ে দেয় (একবারই, তারপর নিজস্ব প্রোগ্রেস হিসেবে থাকে)
+  useEffect(() => {
+    const loadChecklist = async () => {
+      setChecklistLoading(true)
+      try {
+        const { data: existing, error: existingError } = await supabase
+          .from('order_checklist_items')
+          .select('*')
+          .eq('order_id', order.id)
+          .order('display_order', { ascending: true })
+        if (existingError) throw existingError
+
+        if (existing && existing.length > 0) {
+          setChecklist(existing)
+          return
+        }
+
+        const { data: template, error: templateError } = await supabase
+          .from('service_checklist_items')
+          .select('*')
+          .eq('service_id', order.service_id)
+          .order('display_order', { ascending: true })
+        if (templateError) throw templateError
+
+        if (!template || template.length === 0) {
+          setChecklist([])
+          return
+        }
+
+        const insertPayload = template.map((t: any) => ({
+          order_id: order.id,
+          label: t.label,
+          display_order: t.display_order,
+        }))
+        const { data: inserted, error: insertError } = await supabase
+          .from('order_checklist_items')
+          .insert(insertPayload)
+          .select('*')
+        if (insertError) throw insertError
+        setChecklist((inserted || []).sort((a: any, b: any) => a.display_order - b.display_order))
+      } catch (err) {
+        console.error('চেকলিস্ট লোড ত্রুটি:', err)
+      } finally {
+        setChecklistLoading(false)
+      }
+    }
+    loadChecklist()
+  }, [order])
+
+  const toggleChecklistItem = async (item: any) => {
+    const newValue = !item.is_checked
+    setChecklist((prev) =>
+      prev.map((c) => (c.id === item.id ? { ...c, is_checked: newValue } : c))
+    )
+    try {
+      await supabase
+        .from('order_checklist_items')
+        .update({ is_checked: newValue, checked_at: newValue ? new Date().toISOString() : null })
+        .eq('id', item.id)
+    } catch (err) {
+      console.error('চেকলিস্ট আপডেট ত্রুটি:', err)
+    }
+  }
+
+  const checkedCount = checklist.filter((c) => c.is_checked).length
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 py-8 overflow-y-auto">
@@ -120,6 +189,39 @@ export default function OrderDetailModal({
               </div>
             </div>
           )}
+
+          {checklistLoading ? (
+            <p className="text-sm text-gray-400">চেকলিস্ট লোড হচ্ছে...</p>
+          ) : checklist.length > 0 ? (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <ListChecks size={15} /> প্রসেসিং চেকলিস্ট
+                </p>
+                <span className="text-xs text-gray-500">
+                  {checkedCount}/{checklist.length} সম্পন্ন
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {checklist.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex items-center gap-2 bg-gray-50 rounded px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!item.is_checked}
+                      onChange={() => toggleChecklistItem(item)}
+                      className="w-4 h-4"
+                    />
+                    <span className={item.is_checked ? 'line-through text-gray-400' : ''}>
+                      {item.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">আপলোড করা ডকুমেন্ট</p>
