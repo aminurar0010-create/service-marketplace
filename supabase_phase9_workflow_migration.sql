@@ -100,7 +100,31 @@ CREATE POLICY "Admins can delete order checklist" ON order_checklist_items
     SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin'
   ));
 
--- ৫) যাচাই করুন সব ঠিকমতো তৈরি হয়েছে কিনা
+-- ৫) প্রয়োজনীয় ডকুমেন্ট টেমপ্লেট (Admin > Service এডিট করার সময় বসানো হয়) —
+--    সেট করা থাকলে অর্ডার ফর্মে গ্রাহক প্রতিটার জন্য আলাদা বাধ্যতামূলক আপলোড স্লট দেখবে
+CREATE TABLE IF NOT EXISTS service_required_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  service_id uuid NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  display_order int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS service_required_documents_service_idx ON service_required_documents (service_id);
+
+ALTER TABLE service_required_documents ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view required documents" ON service_required_documents;
+CREATE POLICY "Anyone can view required documents" ON service_required_documents
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage required documents" ON service_required_documents;
+CREATE POLICY "Admins can manage required documents" ON service_required_documents
+  FOR ALL USING (EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'staff')
+  ));
+
+-- ৬) যাচাই করুন সব ঠিকমতো তৈরি হয়েছে কিনা
 SELECT column_name, data_type, column_default
 FROM information_schema.columns
 WHERE table_name = 'orders' AND column_name IN ('status', 'priority');

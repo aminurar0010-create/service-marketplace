@@ -46,6 +46,10 @@ export default function ServiceFormModal({
   const [checklistItems, setChecklistItems] = useState<{ id?: string; label: string }[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
 
+  // প্রয়োজনীয় ডকুমেন্ট তালিকা সংক্রান্ত স্টেট — অর্ডার ফর্মে প্রতিটার জন্য আলাদা আপলোড স্লট দেখাবে
+  const [requiredDocs, setRequiredDocs] = useState<{ id?: string; label: string }[]>([])
+  const [requiredDocsLoading, setRequiredDocsLoading] = useState(false)
+
   // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার ইত্যাদি) সংক্রান্ত স্টেট
   const [variants, setVariants] = useState<
     { id?: string; variant_group: string; variant_value: string; price_delta: number; image_url: string }[]
@@ -61,9 +65,41 @@ export default function ServiceFormModal({
       fetchExistingCustomFields(service.id)
       fetchExistingVariants(service.id)
       fetchExistingChecklist(service.id)
+      fetchExistingRequiredDocs(service.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const fetchExistingRequiredDocs = async (serviceId: string) => {
+    setRequiredDocsLoading(true)
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('service_required_documents')
+        .select('*')
+        .eq('service_id', serviceId)
+        .order('display_order', { ascending: true })
+
+      if (fetchError) throw fetchError
+
+      setRequiredDocs((data || []).map((d: any) => ({ id: d.id, label: d.label })))
+    } catch (err) {
+      console.error('প্রয়োজনীয় ডকুমেন্ট লোড ত্রুটি:', err)
+    } finally {
+      setRequiredDocsLoading(false)
+    }
+  }
+
+  const addRequiredDoc = () => {
+    setRequiredDocs((prev) => [...prev, { label: '' }])
+  }
+
+  const updateRequiredDoc = (index: number, label: string) => {
+    setRequiredDocs((prev) => prev.map((d, i) => (i === index ? { ...d, label } : d)))
+  }
+
+  const removeRequiredDoc = (index: number) => {
+    setRequiredDocs((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const fetchExistingChecklist = async (serviceId: string) => {
     setChecklistLoading(true)
@@ -360,6 +396,27 @@ export default function ServiceFormModal({
           if (checklistInsertError) throw checklistInsertError
         }
 
+        // প্রয়োজনীয় ডকুমেন্ট তালিকা সিঙ্ক করুন — একই পদ্ধতি
+        const { error: reqDocsDeleteError } = await supabase
+          .from('service_required_documents')
+          .delete()
+          .eq('service_id', serviceId)
+        if (reqDocsDeleteError) throw reqDocsDeleteError
+
+        const validRequiredDocs = requiredDocs.filter((d) => d.label.trim())
+        if (validRequiredDocs.length > 0) {
+          const reqDocsPayload = validRequiredDocs.map((d, index) => ({
+            service_id: serviceId,
+            label: d.label.trim(),
+            display_order: index,
+          }))
+
+          const { error: reqDocsInsertError } = await supabase
+            .from('service_required_documents')
+            .insert(reqDocsPayload)
+          if (reqDocsInsertError) throw reqDocsInsertError
+        }
+
         // ভ্যারিয়েন্ট সিঙ্ক করুন: একই পদ্ধতি — পুরনো সব মুছে নতুন করে ইনসার্ট
         const { error: variantsDeleteError } = await supabase
           .from('product_variants')
@@ -636,6 +693,52 @@ export default function ServiceFormModal({
                   <button
                     type="button"
                     onClick={() => removeChecklistItem(index)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* প্রয়োজনীয় ডকুমেন্ট তালিকা — অর্ডার ফর্মে প্রতিটার জন্য আলাদা আপলোড স্লট দেখাবে */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="font-semibold">প্রয়োজনীয় ডকুমেন্ট (ঐচ্ছিক)</label>
+            <button
+              type="button"
+              onClick={addRequiredDoc}
+              className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-semibold"
+            >
+              <Plus size={16} /> ডকুমেন্ট যোগ করুন
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            এখানে যোগ করলে অর্ডার ফর্মে গ্রাহক প্রতিটার জন্য আলাদা আপলোড বাটন দেখবে (যেমনঃ SSC
+            রেজিস্ট্রেশন কার্ড, NID কপি) — বাধ্যতামূলক আপলোড হিসেবে। খালি রাখলে আগের মতোই একটাই
+            সাধারণ "ডকুমেন্ট আপলোড" বক্স দেখাবে।
+          </p>
+          {requiredDocsLoading ? (
+            <p className="text-sm text-gray-400">লোড হচ্ছে...</p>
+          ) : requiredDocs.length === 0 ? (
+            <p className="text-sm text-gray-400">কোনো নির্দিষ্ট ডকুমেন্ট যোগ করা হয়নি</p>
+          ) : (
+            <div className="space-y-2">
+              {requiredDocs.map((doc, index) => (
+                <div key={doc.id || index} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-5">{index + 1}.</span>
+                  <input
+                    type="text"
+                    value={doc.label}
+                    onChange={(e) => updateRequiredDoc(index, e.target.value)}
+                    placeholder="যেমনঃ এসএসসি রেজিস্ট্রেশন কার্ডের ছবি"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeRequiredDoc(index)}
                     className="text-red-500 hover:text-red-700"
                   >
                     <Trash2 size={16} />

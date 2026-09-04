@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { X, FileText, Copy, Check, ExternalLink, ListChecks } from 'lucide-react'
+import { X, FileText, Copy, Check, ExternalLink, ListChecks, FileWarning } from 'lucide-react'
 
 const paymentLabel = (m?: string) => {
   const map: Record<string, string> = {
@@ -26,6 +26,24 @@ export default function OrderDetailModal({
   const [copied, setCopied] = useState(false)
   const [checklist, setChecklist] = useState<any[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
+  const [requiredDocs, setRequiredDocs] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadRequiredDocs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('service_required_documents')
+          .select('*')
+          .eq('service_id', order.service_id)
+          .order('display_order', { ascending: true })
+        if (error) throw error
+        setRequiredDocs(data || [])
+      } catch (err) {
+        console.error('প্রয়োজনীয় ডকুমেন্ট লোড ত্রুটি:', err)
+      }
+    }
+    loadRequiredDocs()
+  }, [order])
 
   useEffect(() => {
     const loadDocs = async () => {
@@ -186,6 +204,32 @@ export default function OrderDetailModal({
                     <span className="font-semibold">{f.value}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {requiredDocs.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                <FileWarning size={15} /> প্রয়োজনীয় ডকুমেন্ট
+              </p>
+              <div className="space-y-1.5">
+                {requiredDocs.map((rd: any) => {
+                  const received = (order.documents || []).some((d: any) => d.label === rd.label)
+                  return (
+                    <div
+                      key={rd.id}
+                      className={`flex items-center justify-between rounded px-3 py-2 text-sm ${
+                        received ? 'bg-green-50' : 'bg-red-50'
+                      }`}
+                    >
+                      <span>{rd.label}</span>
+                      <span className={`text-xs font-semibold ${received ? 'text-green-700' : 'text-red-700'}`}>
+                        {received ? '✓ পাওয়া গেছে' : '✗ বাকি আছে'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

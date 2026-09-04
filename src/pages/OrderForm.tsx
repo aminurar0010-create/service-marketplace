@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, Service, ServiceCustomField, ProductVariant, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
+import { supabase, Service, ServiceCustomField, ServiceRequiredDocument, ProductVariant, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Upload, CheckCircle, Tag, X, Zap, Copy, Check } from 'lucide-react'
 import DeliveryEstimate from '../components/DeliveryEstimate'
@@ -43,6 +43,11 @@ export default function OrderForm() {
   const [customFields, setCustomFields] = useState<ServiceCustomField[]>([])
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({})
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
+
+  // প্রয়োজনীয় ডকুমেন্ট সংক্রান্ত স্টেট — প্রতিটার জন্য আলাদা আপলোড স্লট
+  const [requiredDocs, setRequiredDocs] = useState<ServiceRequiredDocument[]>([])
+  const [requiredDocFiles, setRequiredDocFiles] = useState<Record<string, File | null>>({})
+  const [requiredDocsLoading, setRequiredDocsLoading] = useState(false)
 
   // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার) সংক্রান্ত স্টেট
   const [variants, setVariants] = useState<ProductVariant[]>([])
@@ -102,13 +107,16 @@ export default function OrderForm() {
     setCustomFieldValues({})
     setSelectedVariantByGroup({})
     setTransactionId('')
+    setRequiredDocFiles({})
     if (!formData.service_id) {
       setCustomFields([])
       setVariants([])
+      setRequiredDocs([])
       return
     }
     fetchCustomFields(formData.service_id)
     fetchVariants(formData.service_id)
+    fetchRequiredDocs(formData.service_id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.service_id])
 
@@ -156,6 +164,25 @@ export default function OrderForm() {
       setCustomFields([])
     } finally {
       setCustomFieldsLoading(false)
+    }
+  }
+
+  const fetchRequiredDocs = async (serviceId: string) => {
+    setRequiredDocsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('service_required_documents')
+        .select('*')
+        .eq('service_id', serviceId)
+        .order('display_order', { ascending: true })
+
+      if (error) throw error
+      setRequiredDocs(data || [])
+    } catch (error) {
+      console.error('প্রয়োজনীয় ডকুমেন্ট লোড ত্রুটি:', error)
+      setRequiredDocs([])
+    } finally {
+      setRequiredDocsLoading(false)
     }
   }
 
@@ -257,6 +284,14 @@ export default function OrderForm() {
       return
     }
 
+    // প্রয়োজনীয় ডকুমেন্ট সবগুলো আপলোড হয়েছে কিনা যাচাই করুন
+    for (const doc of requiredDocs) {
+      if (!requiredDocFiles[doc.id]) {
+        alert(`দয়া করে "${doc.label}" আপলোড করুন`)
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
@@ -273,6 +308,25 @@ export default function OrderForm() {
             name: file.name,
             path: `${formData.customer_phone}/${fileName}`,
             size: file.size,
+          })
+        }
+      }
+
+      // নির্দিষ্ট প্রয়োজনীয় ডকুমেন্টগুলো (label ট্যাগ সহ) আপলোড করুন
+      for (const doc of requiredDocs) {
+        const file = requiredDocFiles[doc.id]
+        if (!file) continue
+        const fileName = `${Date.now()}_${file.name}`
+        const { error: uploadError } = await supabase.storage
+          .from('order-documents')
+          .upload(`${formData.customer_phone}/${fileName}`, file)
+
+        if (!uploadError) {
+          uploadedDocs.push({
+            name: file.name,
+            path: `${formData.customer_phone}/${fileName}`,
+            size: file.size,
+            label: doc.label,
           })
         }
       }
@@ -356,6 +410,7 @@ export default function OrderForm() {
       setCustomFieldValues({})
       setSelectedVariantByGroup({})
       setTransactionId('')
+      setRequiredDocFiles({})
     } catch (error) {
       console.error('অর্ডার সৃষ্টি ত্রুটি:', error)
       alert('অর্ডার তৈরি করতে ব্যর্থ। দয়া করে পরে চেষ্টা করুন।')
@@ -677,6 +732,33 @@ export default function OrderForm() {
             </div>
           )}
         </div>
+
+        {/* নির্দিষ্ট প্রয়োজনীয় ডকুমেন্ট — সার্ভিসে টেমপ্লেট সেট করা থাকলে প্রতিটার জন্য আলাদা আপলোড স্লট */}
+        {!requiredDocsLoading && requiredDocs.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <label className="block text-sm font-semibold">প্রয়োজনীয় ডকুমেন্ট *</label>
+            {requiredDocs.map((doc) => (
+              <div key={doc.id} className="border border-gray-300 rounded-lg p-3">
+                <p className="text-sm font-semibold mb-2">{doc.label} *</p>
+                <input
+                  type="file"
+                  required
+                  accept="image/*,.pdf"
+                  onChange={(e) =>
+                    setRequiredDocFiles((prev) => ({
+                      ...prev,
+                      [doc.id]: e.target.files?.[0] || null,
+                    }))
+                  }
+                  className="text-sm w-full"
+                />
+                {requiredDocFiles[doc.id] && (
+                  <p className="text-xs text-green-600 mt-1">✓ {requiredDocFiles[doc.id]!.name}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ডকুমেন্ট আপলোড */}
         <div className="mb-6">

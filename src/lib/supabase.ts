@@ -29,6 +29,14 @@ export interface Service {
   created_at: string
 }
 
+export interface ServiceRequiredDocument {
+  id: string
+  service_id: string
+  label: string
+  display_order: number
+  created_at: string
+}
+
 export interface ServiceChecklistItem {
   id: string
   service_id: string
