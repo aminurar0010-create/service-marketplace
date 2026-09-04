@@ -9,28 +9,49 @@ import QuickOrderModal from './QuickOrderModal'
 import KanbanBoard from './KanbanBoard'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
-  const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, updateOrderPriority, getPriorityColor, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
+  const { orders, services, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, updateOrderPriority, getPriorityColor, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
 
   const [memoOrders, setMemoOrders] = useState<any[] | null>(null)
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [showQuickOrder, setShowQuickOrder] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterPriority, setFilterPriority] = useState('')
+  const [filterStaff, setFilterStaff] = useState('')
 
-  // স্মার্ট সার্চ — নাম/ফোন/ট্র্যাকিং আইডি/সার্ভিস দিয়ে খোঁজা যাবে
+  const categories = useMemo(() => {
+    const set = new Set<string>()
+    services.forEach((s: any) => {
+      if (s.category) set.add(s.category)
+    })
+    return Array.from(set).sort()
+  }, [services])
+
+  const serviceIdsInCategory = useMemo(() => {
+    if (!filterCategory) return null
+    return new Set(services.filter((s: any) => s.category === filterCategory).map((s: any) => s.id))
+  }, [services, filterCategory])
+
+  // স্মার্ট সার্চ + অ্যাডভান্সড ফিল্টার — নাম/ফোন/ট্র্যাকিং আইডি/সার্ভিস + ক্যাটাগরি/প্রায়োরিটি/স্টাফ
   const filteredOrders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return orders
     return orders.filter((o: any) => {
-      const serviceName = getServiceName(o.service_id) || ''
-      return (
-        o.tracking_id?.toLowerCase().includes(q) ||
-        o.customer_name?.toLowerCase().includes(q) ||
-        o.customer_phone?.toLowerCase().includes(q) ||
-        serviceName.toLowerCase().includes(q)
-      )
+      if (q) {
+        const serviceName = getServiceName(o.service_id) || ''
+        const matchesSearch =
+          o.tracking_id?.toLowerCase().includes(q) ||
+          o.customer_name?.toLowerCase().includes(q) ||
+          o.customer_phone?.toLowerCase().includes(q) ||
+          serviceName.toLowerCase().includes(q)
+        if (!matchesSearch) return false
+      }
+      if (serviceIdsInCategory && !serviceIdsInCategory.has(o.service_id)) return false
+      if (filterPriority && (o.priority || 'normal') !== filterPriority) return false
+      if (filterStaff && o.assigned_staff_id !== filterStaff) return false
+      return true
     })
-  }, [orders, searchQuery, getServiceName])
+  }, [orders, searchQuery, getServiceName, serviceIdsInCategory, filterPriority, filterStaff])
 
   const getPaymentColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -199,15 +220,65 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
               )}
 
               <div className="mb-4 flex items-center justify-between flex-wrap gap-3">
-                <div className="relative max-w-sm flex-1 min-w-[220px]">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="নাম, ফোন, ট্র্যাকিং আইডি বা সার্ভিস দিয়ে খুঁজুন..."
-                    className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                  />
+                <div className="flex items-center gap-2 flex-wrap flex-1">
+                  <div className="relative max-w-sm flex-1 min-w-[220px]">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="নাম, ফোন, ট্র্যাকিং আইডি বা সার্ভিস দিয়ে খুঁজুন..."
+                      className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">সব ক্যাটাগরি</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={filterPriority}
+                    onChange={(e) => setFilterPriority(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">সব প্রায়োরিটি</option>
+                    <option value="low">কম</option>
+                    <option value="normal">সাধারণ</option>
+                    <option value="important">গুরুত্বপূর্ণ</option>
+                    <option value="urgent">জরুরি</option>
+                  </select>
+                  <select
+                    value={filterStaff}
+                    onChange={(e) => setFilterStaff(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">সব স্টাফ</option>
+                    {staffList.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  {(filterCategory || filterPriority || filterStaff || searchQuery) && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('')
+                        setFilterCategory('')
+                        setFilterPriority('')
+                        setFilterStaff('')
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      ফিল্টার মুছুন
+                    </button>
+                  )}
                 </div>
                 <div className="flex border border-gray-300 rounded-lg overflow-hidden text-sm font-semibold">
                   <button
@@ -224,12 +295,12 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                   </button>
                 </div>
               </div>
-              {searchQuery && viewMode === 'table' && (
+              {viewMode === 'table' && (
                 <p className="text-xs text-gray-500 mb-2 -mt-2">{filteredOrders.length}টা অর্ডার পাওয়া গেছে</p>
               )}
 
               {viewMode === 'kanban' ? (
-                <KanbanBoard ctx={ctx} />
+                <KanbanBoard ctx={ctx} orders={filteredOrders} />
               ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">

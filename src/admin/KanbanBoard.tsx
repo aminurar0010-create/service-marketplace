@@ -18,8 +18,9 @@ const belongsToColumn = (status: string, columnKey: string) => {
   return status === columnKey
 }
 
-export default function KanbanBoard({ ctx }: { ctx: any }) {
-  const { orders, getServiceName, getPriorityColor, getPriorityLabel, updateOrderStatus, getDeadlineInfo } = ctx
+export default function KanbanBoard({ ctx, orders: ordersOverride }: { ctx: any; orders?: any[] }) {
+  const { orders: allOrders, getServiceName, getPriorityColor, getPriorityLabel, updateOrderStatus, getDeadlineInfo } = ctx
+  const orders = ordersOverride ?? allOrders
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
 
