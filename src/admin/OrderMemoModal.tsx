@@ -16,6 +16,7 @@ const paymentLabel = (m?: string) => {
     nagad: 'নগদ',
     rocket: 'রকেট',
     cod: 'ক্যাশ অন ডেলিভারি',
+    cash: 'ক্যাশ',
   }
   return m ? map[m] || m : '-'
 }

@@ -8,6 +8,7 @@ const paymentLabel = (m?: string) => {
     nagad: 'নগদ',
     rocket: 'রকেট',
     cod: 'ক্যাশ অন ডেলিভারি',
+    cash: 'ক্যাশ',
   }
   return m ? map[m] || m : '-'
 }
@@ -205,6 +206,13 @@ export default function OrderDetailModal({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {order.internal_note && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-xs text-yellow-700 font-semibold mb-1">ইন্টারনাল নোট</p>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.internal_note}</p>
             </div>
           )}
 

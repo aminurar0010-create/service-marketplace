@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X } from 'lucide-react'
+import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X, Zap } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import OrderMemoModal from './OrderMemoModal'
 import OrderDetailModal from './OrderDetailModal'
+import QuickOrderModal from './QuickOrderModal'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
   const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, updateOrderPriority, getPriorityColor, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
 
   const [memoOrders, setMemoOrders] = useState<any[] | null>(null)
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
+  const [showQuickOrder, setShowQuickOrder] = useState(false)
 
   const getPaymentColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -22,6 +24,15 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
 
   return (
           <>
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setShowQuickOrder(true)}
+                className="flex items-center gap-2 bg-amber-500 text-white font-bold px-4 py-2 rounded-lg hover:bg-amber-600 transition shadow"
+              >
+                <Zap size={16} /> কুইক অর্ডার
+              </button>
+            </div>
+
             {/* পরিসংখ্যান কার্ড */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
@@ -351,6 +362,8 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                 onClose={() => setDetailOrder(null)}
               />
             )}
+
+            {showQuickOrder && <QuickOrderModal ctx={ctx} onClose={() => setShowQuickOrder(false)} />}
           </>
   )
 }

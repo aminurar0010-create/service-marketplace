@@ -124,7 +124,10 @@ CREATE POLICY "Admins can manage required documents" ON service_required_documen
     SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role IN ('admin', 'staff')
   ));
 
--- ৬) যাচাই করুন সব ঠিকমতো তৈরি হয়েছে কিনা
+-- ৭) অর্ডারে ইন্টারনাল নোট রাখার কলাম (কুইক অর্ডার + অর্ডার ডিটেইলে ব্যবহার হবে)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_note text;
+
+-- ৮) যাচাই করুন সব ঠিকমতো তৈরি হয়েছে কিনা
 SELECT column_name, data_type, column_default
 FROM information_schema.columns
-WHERE table_name = 'orders' AND column_name IN ('status', 'priority');
+WHERE table_name = 'orders' AND column_name IN ('status', 'priority', 'internal_note');

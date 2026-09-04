@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { AlertTriangle, Clock3, Zap, FileWarning, Loader2, CheckCircle2 } from 'lucide-react'
+import QuickOrderModal from './QuickOrderModal'
 
 // "আজকের কাজ" ড্যাশবোর্ড — Admin login করলেই সবচেয়ে আগে এটা দেখা যায়।
 // লক্ষ্য: একনজরে বোঝা যাক আজ কোন কাজগুলো আগে করা দরকার।
 export default function TodayDashboard({ ctx }: { ctx: any }) {
   const { orders, staffList, getServiceName, getDeadlineInfo, getStatusLabel, getPriorityLabel, getPriorityColor, stats } = ctx
+  const [showQuickOrder, setShowQuickOrder] = useState(false)
 
   const activeOrders = orders.filter(
     (o: any) => !['completed', 'cancelled', 'delivered', 'rejected'].includes(o.status)
@@ -55,12 +58,20 @@ export default function TodayDashboard({ ctx }: { ctx: any }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-gray-800">আজকের কাজ</h2>
-        <p className="text-sm text-gray-500">
-          আজকের আয়: <span className="font-semibold">৳{(stats?.todayRevenue || 0).toLocaleString('bn-BD')}</span> •
-          {' '}আজকের অর্ডার: <span className="font-semibold">{stats?.todayOrders || 0}</span>
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">আজকের কাজ</h2>
+          <p className="text-sm text-gray-500">
+            আজকের আয়: <span className="font-semibold">৳{(stats?.todayRevenue || 0).toLocaleString('bn-BD')}</span> •
+            {' '}আজকের অর্ডার: <span className="font-semibold">{stats?.todayOrders || 0}</span>
+          </p>
+        </div>
+        <button
+          onClick={() => setShowQuickOrder(true)}
+          className="flex items-center gap-2 bg-amber-500 text-white font-bold px-4 py-2 rounded-lg hover:bg-amber-600 transition shadow"
+        >
+          <Zap size={16} /> কুইক অর্ডার
+        </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -121,6 +132,8 @@ export default function TodayDashboard({ ctx }: { ctx: any }) {
           আজকের জন্য জরুরি কোনো কাজ বাকি নেই 🎉
         </div>
       )}
+
+      {showQuickOrder && <QuickOrderModal ctx={ctx} onClose={() => setShowQuickOrder(false)} />}
     </div>
   )
 }

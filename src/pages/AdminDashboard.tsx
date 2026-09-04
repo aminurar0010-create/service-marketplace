@@ -618,7 +618,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     bulkProcessing, setBulkProcessing, staffLoading, setStaffLoading, couponsLoading,
     setCouponsLoading, performanceLoading, setPerformanceLoading, messagesLoading,
     setMessagesLoading, sendingMessage, setSendingMessage, selectedStaffId, setSelectedStaffId,
-    messageText, setMessageText, logActivity, stats, assigningOrderId,
+    messageText, setMessageText, logActivity, fetchData, stats, assigningOrderId,
     getServiceName, getStatusColor, getStatusLabel, getDeadlineInfo,
     getPriorityColor, getPriorityLabel,
     updateOrderStatus, updateOrderPriority, updateOrderPaymentStatus, assignStaff, autoAssignStaff,

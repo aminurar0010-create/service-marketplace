@@ -129,6 +129,7 @@ export interface Order {
   selected_variants?: SelectedVariant[]
   deadline_at?: string | null
   assigned_staff_id?: string
+  internal_note?: string | null
   customer_id?: string | null
   service_name?: string
   service_category?: string
