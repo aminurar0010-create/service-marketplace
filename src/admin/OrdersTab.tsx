@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, MessageCircle, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X, Zap } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, MessageCircle, Package, Pencil, Printer, Search, TrendingUp, UserCheck, Wand2, X, Zap } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { toWhatsAppNumber } from '../lib/supabase'
@@ -13,6 +13,22 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
   const [memoOrders, setMemoOrders] = useState<any[] | null>(null)
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [showQuickOrder, setShowQuickOrder] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // স্মার্ট সার্চ — নাম/ফোন/ট্র্যাকিং আইডি/সার্ভিস দিয়ে খোঁজা যাবে
+  const filteredOrders = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return orders
+    return orders.filter((o: any) => {
+      const serviceName = getServiceName(o.service_id) || ''
+      return (
+        o.tracking_id?.toLowerCase().includes(q) ||
+        o.customer_name?.toLowerCase().includes(q) ||
+        o.customer_phone?.toLowerCase().includes(q) ||
+        serviceName.toLowerCase().includes(q)
+      )
+    })
+  }, [orders, searchQuery, getServiceName])
 
   const getPaymentColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -180,6 +196,22 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                 </div>
               )}
 
+              <div className="mb-4">
+                <div className="relative max-w-sm">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="নাম, ফোন, ট্র্যাকিং আইডি বা সার্ভিস দিয়ে খুঁজুন..."
+                    className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                {searchQuery && (
+                  <p className="text-xs text-gray-500 mt-1">{filteredOrders.length}টা অর্ডার পাওয়া গেছে</p>
+                )}
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -206,14 +238,14 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.length === 0 ? (
+                    {filteredOrders.length === 0 ? (
                       <tr>
                         <td colSpan={11} className="px-6 py-8 text-center text-gray-500">
                           কোনো অর্ডার পাওয়া যায়নি
                         </td>
                       </tr>
                     ) : (
-                      orders.map((order: any) => (
+                      filteredOrders.map((order: any) => (
                         <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
                           <td className="px-4 py-4">
                             <input

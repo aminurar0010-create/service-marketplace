@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Wallet, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
-import { supabase, CashTransaction } from '../lib/supabase'
+import { Wallet, Plus, Trash2, TrendingUp, TrendingDown, Package, CheckCircle2 } from 'lucide-react'
+import { supabase, CashTransaction, Order } from '../lib/supabase'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
-export default function CashBookTab() {
+const paymentLabel = (m?: string) => {
+  const map: Record<string, string> = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট', cash: 'ক্যাশ', cod: 'ক্যাশ অন ডেলিভারি' }
+  return m ? map[m] || m : 'অজানা'
+}
+
+export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
   const [transactions, setTransactions] = useState<CashTransaction[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -90,6 +95,25 @@ export default function CashBookTab() {
     return transactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
   }, [transactions])
 
+  // --- দিন শেষের সারাংশ (Daily Closing) — নির্বাচিত দিনের অর্ডার ডেটা থেকে ---
+  const dayOrders = useMemo(
+    () => orders.filter((o) => o.created_at && o.created_at.slice(0, 10) === selectedDate),
+    [orders, selectedDate]
+  )
+  const dayCompletedOrders = dayOrders.filter((o) => ['completed', 'delivered'].includes(o.status))
+  const dayPendingOrders = dayOrders.filter((o) => !['completed', 'delivered', 'cancelled', 'rejected'].includes(o.status))
+  const dayOrderRevenue = dayOrders.reduce((s, o) => s + o.total_amount, 0)
+  const dayDue = dayOrders.filter((o) => o.payment_status !== 'paid').reduce((s, o) => s + o.total_amount, 0)
+
+  const paymentBreakdown = useMemo(() => {
+    const map: Record<string, number> = {}
+    dayOrders.forEach((o) => {
+      const key = o.payment_method || 'অজানা'
+      map[key] = (map[key] || 0) + o.total_amount
+    })
+    return Object.entries(map).sort((a, b) => b[1] - a[1])
+  }, [dayOrders])
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -107,6 +131,50 @@ export default function CashBookTab() {
             ৳{runningBalance}
           </p>
         </div>
+      </div>
+
+      {/* দিন শেষের সারাংশ (Daily Closing) */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Package size={18} className="text-indigo-600" /> দিন শেষের সারাংশ — {selectedDate}
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500">মোট অর্ডার</p>
+            <p className="text-xl font-bold text-gray-800">{dayOrders.length}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500 flex items-center gap-1">
+              <CheckCircle2 size={12} /> সম্পন্ন
+            </p>
+            <p className="text-xl font-bold text-green-700">{dayCompletedOrders.length}</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500">পেন্ডিং</p>
+            <p className="text-xl font-bold text-yellow-700">{dayPendingOrders.length}</p>
+          </div>
+          <div className="bg-red-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500">বাকি (Due)</p>
+            <p className="text-xl font-bold text-red-700">৳{dayDue}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 mb-3">
+          {paymentBreakdown.length === 0 ? (
+            <p className="text-sm text-gray-400">এই দিনে কোনো অর্ডার নেই</p>
+          ) : (
+            paymentBreakdown.map(([method, amount]) => (
+              <div key={method} className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-sm">
+                <span className="font-semibold">{paymentLabel(method)}:</span> ৳{amount}
+              </div>
+            ))
+          )}
+        </div>
+        <p className="text-sm text-gray-600">
+          অর্ডার রেভিনিউ: <span className="font-semibold">৳{dayOrderRevenue}</span> • ক্যাশ-বুক আয়:{' '}
+          <span className="font-semibold text-green-600">৳{dayIncome}</span> • ক্যাশ-বুক ব্যয়:{' '}
+          <span className="font-semibold text-red-600">৳{dayExpense}</span> • আনুমানিক নিট:{' '}
+          <span className="font-semibold text-indigo-700">৳{dayOrderRevenue + dayIncome - dayExpense}</span>
+        </p>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">

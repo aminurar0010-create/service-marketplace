@@ -7,6 +7,8 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
   const { services, staffList, logActivity, fetchData } = ctx
 
   const [serviceId, setServiceId] = useState('')
+  const [isCustom, setIsCustom] = useState(false)
+  const [customServiceName, setCustomServiceName] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [price, setPrice] = useState<number | ''>('')
@@ -29,15 +31,40 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
 
   const handleSubmit = async () => {
     setError('')
-    if (!serviceId || !customerName.trim() || !customerPhone.trim() || price === '') {
+    if (isCustom) {
+      if (!customServiceName.trim() || !customerName.trim() || !customerPhone.trim() || price === '') {
+        setError('কাস্টম সার্ভিসের নাম, কাস্টমারের নাম, মোবাইল ও মূল্য দিন')
+        return
+      }
+    } else if (!serviceId || !customerName.trim() || !customerPhone.trim() || price === '') {
       setError('সার্ভিস, নাম, মোবাইল ও মূল্য দিন')
       return
     }
 
     setLoading(true)
     try {
+      let finalServiceId = serviceId
+
+      // কাস্টম/এককালীন সার্ভিস হলে প্রথমে একটা নিষ্ক্রিয় (is_active=false) সার্ভিস রো বানিয়ে নিন —
+      // এতে পাবলিক তালিকায় দেখাবে না, কিন্তু create_order ফাংশন স্বাভাবিকভাবেই কাজ করবে
+      if (isCustom) {
+        const { data: newService, error: serviceError } = await supabase
+          .from('services')
+          .insert({
+            name: customServiceName.trim(),
+            price: Number(price),
+            category: 'কাস্টম/এককালীন',
+            is_active: false,
+            estimated_hours: 24,
+          })
+          .select('id')
+          .single()
+        if (serviceError) throw serviceError
+        finalServiceId = newService.id
+      }
+
       const { data, error: rpcError } = await supabase.rpc('create_order', {
-        p_service_id: serviceId,
+        p_service_id: finalServiceId,
         p_customer_name: customerName.trim(),
         p_customer_phone: customerPhone.trim(),
         p_customer_email: null,
@@ -69,7 +96,7 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
 
       logActivity?.('কুইক অর্ডার তৈরি করেছেন', 'order', trackingId, {
         customer: customerName.trim(),
-        service: selectedService?.name,
+        service: isCustom ? customServiceName.trim() : selectedService?.name,
       })
 
       setSuccessTrackingId(trackingId)
@@ -97,6 +124,8 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
               onClick={() => {
                 setSuccessTrackingId('')
                 setServiceId('')
+                setIsCustom(false)
+                setCustomServiceName('')
                 setCustomerName('')
                 setCustomerPhone('')
                 setPrice('')
@@ -138,18 +167,40 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
 
           <div>
             <label className="block text-sm font-semibold mb-1">সার্ভিস *</label>
-            <select
-              value={serviceId}
-              onChange={(e) => handleServiceChange(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">সিলেক্ট করুন</option>
-              {services.map((s: any) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} — ৳{s.price}
-                </option>
-              ))}
-            </select>
+            {isCustom ? (
+              <input
+                type="text"
+                value={customServiceName}
+                onChange={(e) => setCustomServiceName(e.target.value)}
+                placeholder="যেমনঃ বিশেষ ডিজাইন অর্ডার"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
+              />
+            ) : (
+              <select
+                value={serviceId}
+                onChange={(e) => handleServiceChange(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">সিলেক্ট করুন</option>
+                {services.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} — ৳{s.price}
+                  </option>
+                ))}
+              </select>
+            )}
+            <label className="flex items-center gap-2 mt-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isCustom}
+                onChange={(e) => {
+                  setIsCustom(e.target.checked)
+                  setServiceId('')
+                }}
+                className="w-4 h-4"
+              />
+              <span className="text-xs text-gray-600">কাস্টম সার্ভিস (তালিকায় নেই)</span>
+            </label>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

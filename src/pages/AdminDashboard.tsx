@@ -795,7 +795,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
           {activeTab === 'messages' && <MessagesTab ctx={ctx} />}
           {activeTab === 'gallery' && <GalleryTab ctx={ctx} />}
           {activeTab === 'reviews' && <ReviewsTab />}
-          {activeTab === 'cashbook' && <CashBookTab />}
+          {activeTab === 'cashbook' && <CashBookTab orders={orders} />}
           {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'inventory' && <InventoryTab />}
