@@ -6,6 +6,7 @@ import { toWhatsAppNumber } from '../lib/supabase'
 import OrderMemoModal from './OrderMemoModal'
 import OrderDetailModal from './OrderDetailModal'
 import QuickOrderModal from './QuickOrderModal'
+import KanbanBoard from './KanbanBoard'
 
 export default function OrdersTab({ ctx }: { ctx: any }) {
   const { orders, staffList, selectedOrderIds, bulkStaffId, setBulkStaffId, bulkStatus, setBulkStatus, bulkProcessing, assigningOrderId, stats, getDeadlineInfo, updateOrderStatus, updateOrderPriority, getPriorityColor, assignStaff, autoAssignStaff, updateOrderPaymentStatus, toggleSelectOrder, toggleSelectAllOrders, clearSelection, bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV, getServiceName, getStatusColor, getStatusLabel } = ctx
@@ -14,6 +15,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [showQuickOrder, setShowQuickOrder] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
 
   // স্মার্ট সার্চ — নাম/ফোন/ট্র্যাকিং আইডি/সার্ভিস দিয়ে খোঁজা যাবে
   const filteredOrders = useMemo(() => {
@@ -196,8 +198,8 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                 </div>
               )}
 
-              <div className="mb-4">
-                <div className="relative max-w-sm">
+              <div className="mb-4 flex items-center justify-between flex-wrap gap-3">
+                <div className="relative max-w-sm flex-1 min-w-[220px]">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
@@ -207,11 +209,28 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                     className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                {searchQuery && (
-                  <p className="text-xs text-gray-500 mt-1">{filteredOrders.length}টা অর্ডার পাওয়া গেছে</p>
-                )}
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden text-sm font-semibold">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-3 py-1.5 ${viewMode === 'table' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    টেবিল ভিউ
+                  </button>
+                  <button
+                    onClick={() => setViewMode('kanban')}
+                    className={`px-3 py-1.5 ${viewMode === 'kanban' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    কানবান ভিউ
+                  </button>
+                </div>
               </div>
+              {searchQuery && viewMode === 'table' && (
+                <p className="text-xs text-gray-500 mb-2 -mt-2">{filteredOrders.length}টা অর্ডার পাওয়া গেছে</p>
+              )}
 
+              {viewMode === 'kanban' ? (
+                <KanbanBoard ctx={ctx} />
+              ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -389,6 +408,7 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
 
             {memoOrders && (

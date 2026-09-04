@@ -53,6 +53,11 @@ export default function ServiceFormModal({
   const [requiredDocs, setRequiredDocs] = useState<{ id?: string; label: string }[]>([])
   const [requiredDocsLoading, setRequiredDocsLoading] = useState(false)
 
+  // ইনভেন্টরি ব্যবহার সংক্রান্ত স্টেট — এই সার্ভিসের অর্ডার 'প্রক্রিয়াধীন' হলে অটো স্টক কমবে
+  const [inventoryItemsList, setInventoryItemsList] = useState<{ id: string; name: string; unit: string }[]>([])
+  const [serviceInventory, setServiceInventory] = useState<{ id?: string; inventory_item_id: string; quantity: number }[]>([])
+  const [serviceInventoryLoading, setServiceInventoryLoading] = useState(false)
+
   // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার ইত্যাদি) সংক্রান্ত স্টেট
   const [variants, setVariants] = useState<
     { id?: string; variant_group: string; variant_value: string; price_delta: number; image_url: string }[]
@@ -64,14 +69,61 @@ export default function ServiceFormModal({
   const [error, setError] = useState('')
 
   useEffect(() => {
+    fetchInventoryItemsList()
     if (isEditing && service) {
       fetchExistingCustomFields(service.id)
       fetchExistingVariants(service.id)
       fetchExistingChecklist(service.id)
       fetchExistingRequiredDocs(service.id)
+      fetchExistingServiceInventory(service.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const fetchInventoryItemsList = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('id, name, unit')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+      if (error) throw error
+      setInventoryItemsList(data || [])
+    } catch (err) {
+      console.error('ইনভেন্টরি তালিকা লোড ত্রুটি:', err)
+    }
+  }
+
+  const fetchExistingServiceInventory = async (serviceId: string) => {
+    setServiceInventoryLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('service_inventory_items')
+        .select('*')
+        .eq('service_id', serviceId)
+      if (error) throw error
+      setServiceInventory(
+        (data || []).map((d: any) => ({ id: d.id, inventory_item_id: d.inventory_item_id, quantity: d.quantity }))
+      )
+    } catch (err) {
+      console.error('সার্ভিস-ইনভেন্টরি লোড ত্রুটি:', err)
+    } finally {
+      setServiceInventoryLoading(false)
+    }
+  }
+
+  const addServiceInventoryRow = () => {
+    if (inventoryItemsList.length === 0) return
+    setServiceInventory((prev) => [...prev, { inventory_item_id: inventoryItemsList[0].id, quantity: 1 }])
+  }
+
+  const updateServiceInventoryRow = (index: number, field: 'inventory_item_id' | 'quantity', value: string | number) => {
+    setServiceInventory((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)))
+  }
+
+  const removeServiceInventoryRow = (index: number) => {
+    setServiceInventory((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const fetchExistingRequiredDocs = async (serviceId: string) => {
     setRequiredDocsLoading(true)
@@ -421,6 +473,24 @@ export default function ServiceFormModal({
             .from('service_required_documents')
             .insert(reqDocsPayload)
           if (reqDocsInsertError) throw reqDocsInsertError
+        }
+
+        // ইনভেন্টরি ব্যবহার তালিকা সিঙ্ক করুন
+        const { error: invDeleteError } = await supabase
+          .from('service_inventory_items')
+          .delete()
+          .eq('service_id', serviceId)
+        if (invDeleteError) throw invDeleteError
+
+        const validServiceInventory = serviceInventory.filter((r) => r.inventory_item_id && r.quantity > 0)
+        if (validServiceInventory.length > 0) {
+          const invPayload = validServiceInventory.map((r) => ({
+            service_id: serviceId,
+            inventory_item_id: r.inventory_item_id,
+            quantity: r.quantity,
+          }))
+          const { error: invInsertError } = await supabase.from('service_inventory_items').insert(invPayload)
+          if (invInsertError) throw invInsertError
         }
 
         // ভ্যারিয়েন্ট সিঙ্ক করুন: একই পদ্ধতি — পুরনো সব মুছে নতুন করে ইনসার্ট
@@ -784,6 +854,64 @@ export default function ServiceFormModal({
                   <button
                     type="button"
                     onClick={() => removeRequiredDoc(index)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ইনভেন্টরি ব্যবহার — অর্ডার 'প্রক্রিয়াধীন' হলে স্বয়ংক্রিয়ভাবে স্টক থেকে বিয়োগ হবে */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="font-semibold">ইনভেন্টরি ব্যবহার (ঐচ্ছিক)</label>
+            <button
+              type="button"
+              onClick={addServiceInventoryRow}
+              disabled={inventoryItemsList.length === 0}
+              className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-semibold disabled:opacity-40"
+            >
+              <Plus size={16} /> আইটেম যোগ করুন
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            এই সার্ভিসের একটা অর্ডার "প্রক্রিয়াধীন" স্ট্যাটাসে গেলে এখানে বসানো পরিমাণ অনুযায়ী
+            ইনভেন্টরি থেকে অটো বিয়োগ হয়ে যাবে (প্রতি অর্ডারে একবারই)।
+          </p>
+          {inventoryItemsList.length === 0 ? (
+            <p className="text-sm text-gray-400">কোনো সক্রিয় ইনভেন্টরি আইটেম পাওয়া যায়নি</p>
+          ) : serviceInventoryLoading ? (
+            <p className="text-sm text-gray-400">লোড হচ্ছে...</p>
+          ) : serviceInventory.length === 0 ? (
+            <p className="text-sm text-gray-400">কোনো ইনভেন্টরি আইটেম যোগ করা হয়নি</p>
+          ) : (
+            <div className="space-y-2">
+              {serviceInventory.map((row, index) => (
+                <div key={row.id || index} className="flex items-center gap-2">
+                  <select
+                    value={row.inventory_item_id}
+                    onChange={(e) => updateServiceInventoryRow(index, 'inventory_item_id', e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {inventoryItemsList.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.unit})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={row.quantity}
+                    onChange={(e) => updateServiceInventoryRow(index, 'quantity', Number(e.target.value))}
+                    className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeServiceInventoryRow(index)}
                     className="text-red-500 hover:text-red-700"
                   >
                     <Trash2 size={16} />

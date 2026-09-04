@@ -41,6 +41,14 @@ export interface MessageTemplate {
   updated_at: string
 }
 
+export interface ServiceInventoryItem {
+  id: string
+  service_id: string
+  inventory_item_id: string
+  quantity: number
+  created_at: string
+}
+
 export interface ServiceRequiredDocument {
   id: string
   service_id: string
@@ -128,6 +136,7 @@ export interface Order {
   documents?: any[]
   status: 'pending' | 'documents_pending' | 'ready' | 'processing' | 'waiting' | 'quality_check' | 'completed' | 'delivered' | 'cancelled' | 'rejected' | 'on_hold'
   priority?: 'low' | 'normal' | 'important' | 'urgent'
+  inventory_deducted?: boolean
   payment_method?: string
   transaction_id?: string | null
   payment_status: 'unpaid' | 'paid' | 'refunded'

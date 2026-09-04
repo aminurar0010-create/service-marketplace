@@ -348,6 +348,34 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     try {
       await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
       logActivity('অর্ডার স্ট্যাটাস পরিবর্তন করেছেন', 'order', orderId, { status: newStatus })
+
+      // 'প্রক্রিয়াধীন' স্ট্যাটাসে প্রথমবার গেলে সার্ভিসের সাথে যুক্ত ইনভেন্টরি অটো বিয়োগ করুন (প্রতি অর্ডারে একবারই)
+      if (newStatus === 'processing') {
+        const order = orders.find((o) => o.id === orderId)
+        if (order && !order.inventory_deducted) {
+          try {
+            const { data: invItems } = await supabase
+              .from('service_inventory_items')
+              .select('*')
+              .eq('service_id', order.service_id)
+
+            if (invItems && invItems.length > 0) {
+              for (const item of invItems) {
+                await supabase.rpc('adjust_stock', {
+                  p_item_id: item.inventory_item_id,
+                  p_movement_type: 'out',
+                  p_quantity: item.quantity,
+                  p_reason: `অর্ডার ${order.tracking_id} এর জন্য স্বয়ংক্রিয় খরচ`,
+                })
+              }
+              await supabase.from('orders').update({ inventory_deducted: true }).eq('id', orderId)
+            }
+          } catch (invError) {
+            console.error('অটো-ইনভেন্টরি বিয়োগ ত্রুটি:', invError)
+          }
+        }
+      }
+
       fetchData()
     } catch (error) {
       console.error('অর্ডার আপডেট ত্রুটি:', error)
