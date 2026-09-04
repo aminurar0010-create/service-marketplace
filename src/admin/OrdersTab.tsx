@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X, Zap } from 'lucide-react'
+import { AlertTriangle, BarChart3, Clock, DollarSign, Download, Eye, MessageCircle, Package, Pencil, Printer, TrendingUp, UserCheck, Wand2, X, Zap } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
+import { toWhatsAppNumber } from '../lib/supabase'
 import OrderMemoModal from './OrderMemoModal'
 import OrderDetailModal from './OrderDetailModal'
 import QuickOrderModal from './QuickOrderModal'
@@ -244,7 +245,18 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                           <td className="px-6 py-4 text-sm">
                             <div>
                               <p className="font-semibold">{order.customer_name}</p>
-                              <p className="text-gray-500 text-xs">{order.customer_phone}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-gray-500 text-xs">{order.customer_phone}</p>
+                                <a
+                                  href={`https://wa.me/${toWhatsAppNumber(order.customer_phone)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="WhatsApp এ চ্যাট করুন"
+                                  className="text-green-500 hover:text-green-700"
+                                >
+                                  <MessageCircle size={13} />
+                                </a>
+                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm">{getServiceName(order.service_id)}</td>

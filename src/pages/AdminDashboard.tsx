@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import TodayDashboard from '../admin/TodayDashboard'
+import MessageTemplatesTab from '../admin/MessageTemplatesTab'
 import ServicesTab from '../admin/ServicesTab'
 import StaffTab from '../admin/StaffTab'
 import CouponsTab from '../admin/CouponsTab'
@@ -33,7 +34,7 @@ import PortfolioTab from '../admin/PortfolioTab'
 import CustomerLedgerTab from '../admin/CustomerLedgerTab'
 import LeadsTab from '../admin/LeadsTab'
 
-type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads' | 'templates'
 
 interface NavItem {
   id: Tab
@@ -650,6 +651,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     { id: 'blog', label: 'ব্লগ', icon: Newspaper },
     { id: 'prompts', label: 'AI প্রম্পট লাইব্রেরি', icon: Sparkles },
     { id: 'leads', label: 'লিড ও AI প্রপোজাল', icon: Sparkles },
+    { id: 'templates', label: 'মেসেজ টেমপ্লেট', icon: MessageSquare },
     { id: 'portfolio', label: 'আমাদের কাজ', icon: Briefcase },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
@@ -804,6 +806,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
           {activeTab === 'blog' && <BlogTab />}
           {activeTab === 'prompts' && <AIPromptsTab />}
           {activeTab === 'leads' && <LeadsTab />}
+          {activeTab === 'templates' && <MessageTemplatesTab />}
           {activeTab === 'portfolio' && <PortfolioTab />}
         </div>
       </main>

@@ -29,6 +29,15 @@ export interface Service {
   created_at: string
 }
 
+export interface MessageTemplate {
+  id: string
+  key: string
+  title: string
+  body: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ServiceRequiredDocument {
   id: string
   service_id: string
@@ -388,6 +397,17 @@ export interface ActivityLog {
   entity_label?: string | null
   details?: Record<string, any> | null
   created_at: string
+}
+
+/**
+ * বাংলাদেশি ফোন নম্বরকে wa.me লিংকের জন্য উপযুক্ত ফরম্যাটে (৮৮০ কান্ট্রি কোডসহ) রূপান্তর করে।
+ * উদাহরণ: "01968673241" → "8801968673241", "+880196..." → "880196..."
+ */
+export function toWhatsAppNumber(phone: string): string {
+  const digits = phone.replace(/[^0-9]/g, '')
+  if (digits.startsWith('880')) return digits
+  if (digits.startsWith('0')) return '880' + digits.slice(1)
+  return digits
 }
 
 /**

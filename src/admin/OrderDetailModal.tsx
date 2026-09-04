@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { X, FileText, Copy, Check, ExternalLink, ListChecks, FileWarning } from 'lucide-react'
+import { supabase, toWhatsAppNumber } from '../lib/supabase'
+import { X, FileText, Copy, Check, ExternalLink, ListChecks, FileWarning, MessageCircle } from 'lucide-react'
 
 const paymentLabel = (m?: string) => {
   const map: Record<string, string> = {
@@ -11,6 +11,24 @@ const paymentLabel = (m?: string) => {
     cash: 'ক্যাশ',
   }
   return m ? map[m] || m : '-'
+}
+
+const DEFAULT_TEMPLATES: Record<string, string> = {
+  order_received: 'প্রিয় {customer_name}, আপনার অর্ডার সফলভাবে গ্রহণ করা হয়েছে। ট্র্যাকিং আইডি: {tracking_id}। ধন্যবাদ — New Printers',
+  documents_missing: 'প্রিয় {customer_name}, আপনার {service_name} অর্ডার (ট্র্যাকিং: {tracking_id}) সম্পন্ন করতে নিচের তথ্য/ডকুমেন্ট প্রয়োজনঃ {missing_docs}। দয়া করে দ্রুত পাঠিয়ে দিন। — New Printers',
+  processing: 'প্রিয় {customer_name}, আপনার {service_name} (ট্র্যাকিং: {tracking_id}) বর্তমানে প্রক্রিয়াধীন রয়েছে। সম্পন্ন হলে জানিয়ে দেওয়া হবে। — New Printers',
+  completed: 'প্রিয় {customer_name}, আপনার {service_name} (ট্র্যাকিং: {tracking_id}) সম্পন্ন হয়েছে। ধন্যবাদ — New Printers',
+  payment_due: 'প্রিয় {customer_name}, আপনার {service_name} (ট্র্যাকিং: {tracking_id}) অর্ডারের ৳{amount} টাকা বাকি রয়েছে। দয়া করে পরিশোধ করুন। — New Printers',
+  ready_for_collection: 'প্রিয় {customer_name}, আপনার {service_name} (ট্র্যাকিং: {tracking_id}) প্রস্তুত। অনুগ্রহ করে দোকান থেকে সংগ্রহ করুন। — New Printers',
+}
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  order_received: 'অর্ডার গৃহীত',
+  documents_missing: 'ডকুমেন্ট বাকি',
+  processing: 'প্রক্রিয়াধীন',
+  completed: 'সম্পন্ন',
+  payment_due: 'পেমেন্ট বাকি',
+  ready_for_collection: 'সংগ্রহের জন্য প্রস্তুত',
 }
 
 export default function OrderDetailModal({
@@ -28,6 +46,44 @@ export default function OrderDetailModal({
   const [checklist, setChecklist] = useState<any[]>([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [requiredDocs, setRequiredDocs] = useState<any[]>([])
+  const [templates, setTemplates] = useState<Record<string, string>>(DEFAULT_TEMPLATES)
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState('order_received')
+  const [messageText, setMessageText] = useState('')
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const { data, error } = await supabase.from('message_templates').select('*')
+        if (error) throw error
+        const map: Record<string, string> = { ...DEFAULT_TEMPLATES }
+        ;(data || []).forEach((t: any) => {
+          map[t.key] = t.body
+        })
+        setTemplates(map)
+      } catch (err) {
+        console.error('মেসেজ টেমপ্লেট লোড ত্রুটি:', err)
+      }
+    }
+    loadTemplates()
+  }, [])
+
+  useEffect(() => {
+    const missingLabels = requiredDocs
+      .filter((rd: any) => !(order.documents || []).some((d: any) => d.label === rd.label))
+      .map((rd: any) => rd.label)
+      .join(', ')
+
+    const fillPlaceholder = (str: string, key: string, value: string) => str.split(key).join(value)
+
+    let filled = templates[selectedTemplateKey] || ''
+    filled = fillPlaceholder(filled, '{customer_name}', order.customer_name || '')
+    filled = fillPlaceholder(filled, '{tracking_id}', order.tracking_id || '')
+    filled = fillPlaceholder(filled, '{service_name}', getServiceName(order.service_id))
+    filled = fillPlaceholder(filled, '{amount}', String(order.total_amount ?? ''))
+    filled = fillPlaceholder(filled, '{missing_docs}', missingLabels || 'কোনো তথ্য বাকি নেই')
+
+    setMessageText(filled)
+  }, [selectedTemplateKey, templates, order, requiredDocs, getServiceName])
 
   useEffect(() => {
     const loadRequiredDocs = async () => {
@@ -213,6 +269,41 @@ export default function OrderDetailModal({
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
               <p className="text-xs text-yellow-700 font-semibold mb-1">ইন্টারনাল নোট</p>
               <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.internal_note}</p>
+            </div>
+          )}
+
+          {order.customer_phone && (
+            <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <MessageCircle size={15} /> গ্রাহককে মেসেজ পাঠান
+                </p>
+                <select
+                  value={selectedTemplateKey}
+                  onChange={(e) => setSelectedTemplateKey(e.target.value)}
+                  className="text-xs border border-gray-300 rounded px-2 py-1"
+                >
+                  {Object.entries(TEMPLATE_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500"
+              />
+              <a
+                href={`https://wa.me/${toWhatsAppNumber(order.customer_phone)}?text=${encodeURIComponent(messageText)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-green-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-green-700 transition"
+              >
+                <MessageCircle size={15} /> WhatsApp-এ পাঠান
+              </a>
             </div>
           )}
 
