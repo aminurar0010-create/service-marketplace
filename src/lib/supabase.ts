@@ -17,6 +17,9 @@ export interface Service {
   name: string
   description: string
   price: number
+  internal_cost?: number | null
+  material_cost?: number | null
+  other_cost?: number | null
   category: string
   is_active: boolean
   image_url?: string | null

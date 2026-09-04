@@ -15,6 +15,9 @@ export default function ServiceFormModal({
   const [name, setName] = useState(service?.name || '')
   const [description, setDescription] = useState(service?.description || '')
   const [price, setPrice] = useState(service?.price ?? 0)
+  const [internalCost, setInternalCost] = useState(service?.internal_cost ?? 0)
+  const [materialCost, setMaterialCost] = useState(service?.material_cost ?? 0)
+  const [otherCost, setOtherCost] = useState(service?.other_cost ?? 0)
   const [category, setCategory] = useState(service?.category || '')
   const [isActive, setIsActive] = useState(service?.is_active ?? true)
 
@@ -317,6 +320,9 @@ export default function ServiceFormModal({
         name: name.trim(),
         description: description.trim() || null,
         price,
+        internal_cost: internalCost || 0,
+        material_cost: materialCost || 0,
+        other_cost: otherCost || 0,
         category: category.trim(),
         is_active: isActive,
         image_url: imageUrl || null,
@@ -546,6 +552,45 @@ export default function ServiceFormModal({
               onChange={(e) => setPrice(Number(e.target.value))}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+
+          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <p className="text-sm font-semibold mb-2">খরচ (ঐচ্ছিক — Profit রিপোর্টের জন্য)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">এক্সটার্নাল/সার্ভিস কস্ট</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={internalCost}
+                  onChange={(e) => setInternalCost(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">ম্যাটেরিয়াল কস্ট</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={materialCost}
+                  onChange={(e) => setMaterialCost(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">অন্যান্য কস্ট</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={otherCost}
+                  onChange={(e) => setOtherCost(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              প্রতি অর্ডারে আনুমানিক নিট প্রফিট: <span className="font-semibold text-green-700">৳{Math.max(0, price - internalCost - materialCost - otherCost)}</span>
+            </p>
           </div>
 
           <div>

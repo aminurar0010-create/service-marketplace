@@ -70,6 +70,33 @@ export default function ReportsTab({ services, orders }: { services: Service[]; 
     })
   }, [popularServices])
 
+  // --- সার্ভিস-ভিত্তিক প্রফিট রিপোর্ট (completed/delivered অর্ডার থেকে) ---
+  const serviceProfitReport = useMemo(() => {
+    const finishedOrders = orders.filter((o) => ['completed', 'delivered'].includes(o.status))
+    const grouped: Record<string, { count: number; revenue: number }> = {}
+    finishedOrders.forEach((o) => {
+      if (!grouped[o.service_id]) grouped[o.service_id] = { count: 0, revenue: 0 }
+      grouped[o.service_id].count++
+      grouped[o.service_id].revenue += o.total_amount
+    })
+    return Object.entries(grouped)
+      .map(([serviceId, g]) => {
+        const svc = services.find((s) => s.id === serviceId)
+        const perOrderCost = (svc?.internal_cost || 0) + (svc?.material_cost || 0) + (svc?.other_cost || 0)
+        const totalCost = perOrderCost * g.count
+        const profit = g.revenue - totalCost
+        return {
+          serviceId,
+          name: svc?.name || 'অজানা সার্ভিস',
+          count: g.count,
+          revenue: g.revenue,
+          cost: totalCost,
+          profit,
+        }
+      })
+      .sort((a, b) => b.profit - a.profit)
+  }, [orders, services])
+
   // --- মাসিক প্রফিট-লস ---
   const availableMonths = useMemo(() => {
     const months = new Set<string>()
@@ -182,6 +209,44 @@ export default function ReportsTab({ services, orders }: { services: Service[]; 
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
+          <TrendingUp className="text-green-600" size={22} />
+          সার্ভিস-ভিত্তিক প্রফিট রিপোর্ট
+        </h2>
+        <p className="text-xs text-gray-500 mb-4">
+          শুধু সম্পন্ন/ডেলিভার হওয়া অর্ডার থেকে হিসাব করা — Service-এ খরচ (কস্ট) সেট করা না থাকলে প্রফিট = রেভিনিউ দেখাবে।
+        </p>
+        {serviceProfitReport.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">এখনো কোনো সম্পন্ন অর্ডার নেই</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-gray-600">
+                  <th className="py-2 pr-4">সার্ভিস</th>
+                  <th className="py-2 pr-4">অর্ডার</th>
+                  <th className="py-2 pr-4">রেভিনিউ</th>
+                  <th className="py-2 pr-4">খরচ</th>
+                  <th className="py-2 pr-4">প্রফিট</th>
+                </tr>
+              </thead>
+              <tbody>
+                {serviceProfitReport.map((s) => (
+                  <tr key={s.serviceId} className="border-b border-gray-100">
+                    <td className="py-2 pr-4 font-medium text-gray-800">{s.name}</td>
+                    <td className="py-2 pr-4">{s.count}</td>
+                    <td className="py-2 pr-4">৳{s.revenue.toLocaleString('bn-BD')}</td>
+                    <td className="py-2 pr-4 text-red-600">৳{s.cost.toLocaleString('bn-BD')}</td>
+                    <td className="py-2 pr-4 font-semibold text-green-700">৳{s.profit.toLocaleString('bn-BD')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
