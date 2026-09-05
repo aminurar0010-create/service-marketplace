@@ -1,87 +1,49 @@
-import { LucideIcon } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
+import { Service } from '../lib/supabase'
+import { getServiceEmoji } from '../lib/serviceEmoji'
 
-interface ServiceCardProps {
-  title: string
-  description: string
-  icon: LucideIcon
-  price?: string
-  delay?: number
-  onClick?: () => void
-}
-
-export default function ServiceCard({
-  title,
-  description,
-  icon: Icon,
-  price,
-  delay = 0,
-  onClick,
-}: ServiceCardProps) {
-  const animationDelay = `${delay * 0.15}s`
-
+export default function ServiceCard({ service }: { service: Service }) {
   return (
-    <div
-      onClick={onClick}
-      className="group"
-      style={{ animation: `fadeInUp 0.6s ease-out ${animationDelay} both` }}
+    <Link
+      to={`/service/${service.id}`}
+      className="group relative flex items-center gap-3 bg-white rounded-lg shadow-sm hover:shadow-md transition overflow-hidden border border-ink-50 sm:flex-col sm:items-stretch sm:gap-0 sm:border-0 sm:shadow-md doc-frame"
     >
-      <div className="relative h-full bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100 hover:border-indigo-300 cursor-pointer overflow-hidden">
-        {/* Background Glow */}
-        <div className="absolute -right-8 -top-8 w-32 h-32 bg-indigo-100 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500 blur-2xl" />
+      {/* বাম পাশের ব্রাস অ্যাকসেন্ট — মোবাইলে টিকিট-স্টাবের মতো, ডেস্কটপে অদৃশ্য */}
+      <span className="absolute left-0 top-0 h-full w-1 bg-brass sm:hidden" aria-hidden="true" />
 
-        {/* Dark overlay for better text on hover */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300" />
-
-        {/* Content */}
-        <div className="relative z-10">
-          {/* Icon */}
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 shadow-lg">
-            <Icon className="w-8 h-8 text-white" />
+      <div className="w-16 h-16 flex-shrink-0 ml-2 my-2 rounded-md overflow-hidden sm:w-full sm:h-32 sm:m-0 sm:rounded-none">
+        {service.image_url ? (
+          <img src={service.image_url} alt={service.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="bg-gradient-to-br from-ink-600 to-ink-700 w-full h-full flex items-center justify-center text-2xl sm:text-5xl">
+            {getServiceEmoji(service.name)}
           </div>
-
-          {/* Title */}
-          <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-indigo-600 transition-colors duration-300">
-            {title}
-          </h3>
-
-          {/* Description */}
-          <p className="text-gray-600 text-sm leading-relaxed mb-6">
-            {description}
-          </p>
-
-          {/* Price (if available) */}
-          {price && (
-            <p className="text-2xl font-bold text-indigo-600 mb-4">
-              {price}
-              <span className="text-xs text-gray-500 font-normal ml-1">/প্রতিটি</span>
-            </p>
-          )}
-
-          {/* CTA */}
-          <div className="flex items-center gap-2 text-indigo-600 font-semibold text-sm group-hover:gap-3 transition-all duration-300">
-            <span>আরও জানুন</span>
-            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
-
-        {/* Top Border Animation */}
-        <div className="absolute top-0 left-0 h-1 w-0 bg-gradient-to-r from-indigo-400 to-blue-500 group-hover:w-full transition-all duration-500" />
+        )}
       </div>
 
-      {/* Animation styles */}
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-    </div>
+      <div className="flex-1 min-w-0 py-2 pr-3 sm:p-5">
+        <h3 className="font-semibold text-charcoal text-sm leading-snug truncate sm:text-lg sm:font-bold sm:whitespace-normal sm:mb-1.5 sm:min-h-[3rem]">
+          {service.name}
+        </h3>
+
+        <p
+          className="hidden sm:block text-charcoal/60 text-sm mb-4"
+          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+        >
+          {service.description}
+        </p>
+
+        <div className="flex items-center justify-between sm:mt-auto">
+          <span className="font-stamp text-base font-bold text-ink-600 sm:text-xl">৳{service.price}</span>
+          <span className="flex items-center gap-1 text-xs font-semibold text-seal sm:hidden">
+            বিস্তারিত <ArrowRight size={12} />
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-seal group-hover:gap-1.5 transition-all">
+            বিস্তারিত দেখুন <ArrowRight size={13} />
+          </span>
+        </div>
+      </div>
+    </Link>
   )
 }

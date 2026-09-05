@@ -8,6 +8,7 @@ import InstallPrompt from './components/InstallPrompt'
 import Analytics from './components/Analytics'
 import ChatWidget from './components/ChatWidget'
 import SiteBanner from './components/SiteBanner'
+import ScrollToHash from './components/ScrollToHash'
 
 // Pages
 import Home from './pages/Home'
@@ -22,6 +23,7 @@ import Blog from './pages/Blog'
 import BlogPostPage from './pages/BlogPostPage'
 import PromptLibrary from './pages/PromptLibrary'
 import PortfolioDetailPage from './pages/PortfolioDetailPage'
+import ServiceDetailPage from './pages/ServiceDetailPage'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -83,6 +85,7 @@ export default function App() {
   return (
     <Router>
       <div className="min-h-screen bg-paper">
+        <ScrollToHash />
         <Analytics />
         <SiteBanner />
         <Navbar user={user} profile={profile} customer={customer} />
@@ -95,6 +98,7 @@ export default function App() {
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/prompts" element={<PromptLibrary />} />
           <Route path="/portfolio/:id" element={<PortfolioDetailPage />} />
+          <Route path="/service/:id" element={<ServiceDetailPage />} />
 
           {/* কাস্টমার অ্যাকাউন্ট */}
           <Route
