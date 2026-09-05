@@ -734,7 +734,7 @@ export default function OrderForm() {
                   {formData.payment_method === 'qr' && (
                     <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-3 space-y-3">
                       <img src="/payment/super-qr.png" alt="Super QR" className="w-40 h-40 mx-auto" />
-                      <p className="text-center text-sm font-semibold">মিনহাজ টেলিকম — 01968-673241</p>
+                      <p className="text-center text-sm font-semibold">নিউ প্রিন্টার্স — 01968-673241</p>
                       <div>
                         <label className="block text-sm font-semibold mb-2">পেমেন্ট রেফারেন্স/ট্রানজেকশন নম্বর *</label>
                         <input
