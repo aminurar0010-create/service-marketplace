@@ -265,6 +265,9 @@ export default function TrackingStatus() {
                         {order.payment_method === 'bkash' && 'বিকাশ'}
                         {order.payment_method === 'nagad' && 'নগদ'}
                         {order.payment_method === 'rocket' && 'রকেট'}
+                        {order.payment_method === 'qr' && 'সুপার কিউআর'}
+                        {order.payment_method === 'cod' && 'ক্যাশ অন ডেলিভারি'}
+                        {order.payment_method === 'cash' && 'ক্যাশ'}
                       </span>
                     </div>
                     {order.transaction_id && (

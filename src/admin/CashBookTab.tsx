@@ -5,7 +5,7 @@ import { supabase, CashTransaction, Order } from '../lib/supabase'
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
 const paymentLabel = (m?: string) => {
-  const map: Record<string, string> = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট', cash: 'ক্যাশ', cod: 'ক্যাশ অন ডেলিভারি' }
+  const map: Record<string, string> = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট', cash: 'ক্যাশ', cod: 'ক্যাশ অন ডেলিভারি', qr: 'সুপার কিউআর' }
   return m ? map[m] || m : 'অজানা'
 }
 

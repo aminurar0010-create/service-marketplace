@@ -242,6 +242,7 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="cash">ক্যাশ</option>
+                <option value="qr">সুপার কিউআর</option>
                 <option value="bkash">বিকাশ</option>
                 <option value="nagad">নগদ</option>
                 <option value="rocket">রকেট</option>

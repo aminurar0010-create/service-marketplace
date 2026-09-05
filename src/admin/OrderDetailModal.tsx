@@ -9,6 +9,7 @@ const paymentLabel = (m?: string) => {
     rocket: 'রকেট',
     cod: 'ক্যাশ অন ডেলিভারি',
     cash: 'ক্যাশ',
+    qr: 'সুপার কিউআর',
   }
   return m ? map[m] || m : '-'
 }

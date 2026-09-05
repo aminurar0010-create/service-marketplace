@@ -18,7 +18,7 @@ export default function OrderForm() {
     customer_name: '',
     customer_phone: '',
     customer_email: '',
-    payment_method: 'bkash',
+    payment_method: 'qr',
     documents: [] as File[],
   })
 
@@ -284,6 +284,12 @@ export default function OrderForm() {
       return
     }
 
+    // সুপার কিউআর দিয়ে পেমেন্ট করলে রেফারেন্স/ট্রানজেকশন নম্বর বাধ্যতামূলক
+    if (!selectedService?.payment_bkash_number && formData.payment_method === 'qr' && !transactionId.trim()) {
+      alert('দয়া করে পেমেন্ট রেফারেন্স/ট্রানজেকশন নম্বর দিন')
+      return
+    }
+
     // প্রয়োজনীয় ডকুমেন্ট সবগুলো আপলোড হয়েছে কিনা যাচাই করুন
     for (const doc of requiredDocs) {
       if (!requiredDocFiles[doc.id]) {
@@ -400,7 +406,7 @@ export default function OrderForm() {
         customer_name: '',
         customer_phone: '',
         customer_email: '',
-        payment_method: 'bkash',
+        payment_method: 'qr',
         documents: [],
       })
       setAppliedCoupon(null)
@@ -712,23 +718,49 @@ export default function OrderForm() {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              {['bkash', 'nagad', 'rocket'].map((method) => (
-                <label key={method} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value={method}
-                    checked={formData.payment_method === method}
-                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                  />
-                  <span className="font-semibold">
-                    {method === 'bkash' && 'বিকাশ'}
-                    {method === 'nagad' && 'নগদ'}
-                    {method === 'rocket' && 'রকেট'}
-                  </span>
-                </label>
-              ))}
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 cursor-pointer border border-gray-300 rounded-lg p-3">
+                <input
+                  type="radio"
+                  name="payment"
+                  value="qr"
+                  checked={formData.payment_method === 'qr'}
+                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <span className="font-semibold">সুপার কিউআর (যেকোনো অ্যাপ দিয়ে স্ক্যান করুন)</span>
+                  <p className="text-xs text-gray-500 mt-0.5">বিকাশ, নগদ, রকেট, বা যেকোনো ব্যাংক অ্যাপ দিয়ে স্ক্যান করে পে করা যাবে</p>
+                  {formData.payment_method === 'qr' && (
+                    <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-3 space-y-3">
+                      <img src="/payment/super-qr.png" alt="Super QR" className="w-40 h-40 mx-auto" />
+                      <p className="text-center text-sm font-semibold">মিনহাজ টেলিকম — 01968-673241</p>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">পেমেন্ট রেফারেন্স/ট্রানজেকশন নম্বর *</label>
+                        <input
+                          type="text"
+                          required
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="স্ক্যান করে পে করার পর যে নম্বর/রেফারেন্স পাবেন সেটা দিন"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer border border-gray-300 rounded-lg p-3">
+                <input
+                  type="radio"
+                  name="payment"
+                  value="cod"
+                  checked={formData.payment_method === 'cod'}
+                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                />
+                <span className="font-semibold">ক্যাশ অন ডেলিভারি</span>
+              </label>
             </div>
           )}
         </div>
