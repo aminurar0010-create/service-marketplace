@@ -143,7 +143,7 @@ export default function ServiceDetailPage() {
             <h2 className="font-display text-xl sm:text-2xl font-bold text-ink-700 mb-6">
               {service.category} থেকে আরও সেবা
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-6">
               {relatedServices.map((s) => (
                 <ServiceCard key={s.id} service={s} />
               ))}
