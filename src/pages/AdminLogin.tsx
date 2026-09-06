@@ -30,7 +30,7 @@ export default function AdminLogin() {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single()
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
+      if (!profile || !['admin', 'staff', 'counter_operator'].includes(profile.role)) {
         await supabase.auth.signOut()
         setError('শুধুমাত্র অ্যাডমিন/স্টাফ অ্যাক্সেস করতে পারে')
         return

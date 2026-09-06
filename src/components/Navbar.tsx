@@ -28,9 +28,10 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
     navigate('/')
   }
 
-  const isStaffOrAdmin = profile?.role === 'staff' || profile?.role === 'admin'
+  const isStaffOrAdmin = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'counter_operator'
   const dashboardPath = profile?.role === 'staff' ? '/staff/dashboard' : '/admin/dashboard'
-  const dashboardLabel = profile?.role === 'staff' ? 'স্টাফ ড্যাশবোর্ড' : 'ড্যাশবোর্ড'
+  const dashboardLabel =
+    profile?.role === 'staff' ? 'স্টাফ ড্যাশবোর্ড' : profile?.role === 'counter_operator' ? 'কাউন্টার ড্যাশবোর্ড' : 'ড্যাশবোর্ড'
   const isCustomer = !!user && !isStaffOrAdmin
 
   const transparent = isHome && !scrolled && !mobileOpen

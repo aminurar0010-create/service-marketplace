@@ -52,7 +52,7 @@ interface StatCard {
   textColor: string
 }
 
-export default function AdminDashboardV2({ user }: { user: any }) {
+export default function AdminDashboardV2({ user, role }: { user: any; role?: string }) {
   const [activeTab, setActiveTab] = useState<Tab>('today')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [, setMobileMenuOpen] = useState(false)
@@ -545,11 +545,12 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     }
   }
 
-  const toggleRole = async (profile: Profile) => {
-    const newRole = profile.role === 'admin' ? 'staff' : 'admin'
-    if (!window.confirm(`${profile.full_name || 'এই ইউজার'}-এর role "${newRole}" করতে চান?`)) return
+  const setUserRole = async (id: string, newRole: string) => {
+    const roleLabel = newRole === 'admin' ? 'অ্যাডমিন' : newRole === 'counter_operator' ? 'কাউন্টার অপারেটর' : 'স্টাফ'
+    if (!window.confirm(`এই ইউজারের role "${roleLabel}" করতে চান?`)) return
     try {
-      await supabase.from('profiles').update({ role: newRole }).eq('id', profile.id)
+      await supabase.from('profiles').update({ role: newRole }).eq('id', id)
+      logActivity('ইউজারের রোল পরিবর্তন করেছেন', 'profile', id, { role: newRole })
       fetchProfiles()
       fetchData()
     } catch (error) {
@@ -653,7 +654,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     updateOrderStatus, updateOrderPriority, updateOrderPaymentStatus, assignStaff, autoAssignStaff,
     toggleSelectOrder, toggleSelectAllOrders, clearSelection,
     bulkAssignStaff, bulkUpdateStatus, exportSelectedCSV,
-    toggleServiceActive, deleteService, toggleRole,
+    toggleServiceActive, deleteService, setUserRole,
     toggleGalleryPhotoActive, deleteGalleryPhoto,
     toggleCouponActive, deleteCoupon, isCouponExpired,
     getUnreadCount, selectStaffConversation, sendMessage,
@@ -683,6 +684,18 @@ export default function AdminDashboardV2({ user }: { user: any }) {
     { id: 'portfolio', label: 'আমাদের কাজ', icon: Briefcase },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
+
+  // কাউন্টার অপারেটর শুধু Order/Customer/Payment সংক্রান্ত ট্যাবগুলো দেখবে
+  const counterOperatorAllowedTabs = ['today', 'orders', 'customer_ledger', 'cashbook']
+  const visibleNavItems =
+    role === 'counter_operator' ? navItems.filter((n) => counterOperatorAllowedTabs.includes(n.id)) : navItems
+
+  useEffect(() => {
+    if (role === 'counter_operator' && !counterOperatorAllowedTabs.includes(activeTab)) {
+      setActiveTab('today')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role])
 
   const statCards: StatCard[] = [
     {
@@ -750,7 +763,7 @@ export default function AdminDashboardV2({ user }: { user: any }) {
         }`}
       >
         <nav className="p-4 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
             return (
               <button

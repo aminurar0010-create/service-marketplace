@@ -197,7 +197,7 @@ export interface Profile {
   id: string
   full_name: string
   phone: string
-  role: 'admin' | 'staff'
+  role: 'admin' | 'staff' | 'counter_operator'
   specialization: string[]
   max_concurrent_orders: number
   is_available: boolean

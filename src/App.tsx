@@ -81,6 +81,8 @@ export default function App() {
 
   const isAdmin = profile?.role === 'admin'
   const isStaff = profile?.role === 'staff'
+  const isCounterOperator = profile?.role === 'counter_operator'
+  const isDashboardUser = isAdmin || isStaff || isCounterOperator
 
   return (
     <Router>
@@ -106,7 +108,7 @@ export default function App() {
             element={
               !user ? (
                 <CustomerLogin />
-              ) : isAdmin ? (
+              ) : isAdmin || isCounterOperator ? (
                 <Navigate to="/admin/dashboard" />
               ) : isStaff ? (
                 <Navigate to="/staff/dashboard" />
@@ -118,9 +120,9 @@ export default function App() {
           <Route
             path="/account"
             element={
-              user && !isAdmin && !isStaff ? (
+              user && !isDashboardUser ? (
                 <CustomerDashboard user={user} />
-              ) : isAdmin ? (
+              ) : isAdmin || isCounterOperator ? (
                 <Navigate to="/admin/dashboard" />
               ) : isStaff ? (
                 <Navigate to="/staff/dashboard" />
@@ -136,7 +138,7 @@ export default function App() {
             element={
               !user ? (
                 <AdminLogin />
-              ) : isAdmin ? (
+              ) : isAdmin || isCounterOperator ? (
                 <Navigate to="/admin/dashboard" />
               ) : isStaff ? (
                 <Navigate to="/staff/dashboard" />
@@ -146,12 +148,12 @@ export default function App() {
             }
           />
 
-          {/* অ্যাডমিন রুট */}
+          {/* অ্যাডমিন রুট (কাউন্টার অপারেটরও এখানে ঢোকে, তবে সীমিত ট্যাব দেখে) */}
           <Route
             path="/admin/dashboard"
             element={
-              isAdmin ? (
-                <AdminDashboard user={user} />
+              isAdmin || isCounterOperator ? (
+                <AdminDashboard user={user} role={profile?.role} />
               ) : isStaff ? (
                 <Navigate to="/staff/dashboard" />
               ) : (
@@ -166,7 +168,7 @@ export default function App() {
             element={
               isStaff ? (
                 <StaffDashboard user={user} />
-              ) : isAdmin ? (
+              ) : isAdmin || isCounterOperator ? (
                 <Navigate to="/admin/dashboard" />
               ) : (
                 <Navigate to="/admin/login" />

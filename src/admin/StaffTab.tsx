@@ -3,7 +3,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 
 export default function StaffTab({ ctx }: { ctx: any }) {
-  const { profiles, staffLoading, setEditingProfile, user, toggleRole } = ctx
+  const { profiles, staffLoading, setEditingProfile, user, setUserRole } = ctx
 
   return (
           <div className="bg-white rounded-lg shadow">
@@ -60,10 +60,12 @@ export default function StaffTab({ ctx }: { ctx: any }) {
                               className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
                                 p.role === 'admin'
                                   ? 'bg-purple-100 text-purple-800'
+                                  : p.role === 'counter_operator'
+                                  ? 'bg-teal-100 text-teal-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}
                             >
-                              {p.role === 'admin' ? 'অ্যাডমিন' : 'স্টাফ'}
+                              {p.role === 'admin' ? 'অ্যাডমিন' : p.role === 'counter_operator' ? 'কাউন্টার অপারেটর' : 'স্টাফ'}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600">
@@ -97,13 +99,16 @@ export default function StaffTab({ ctx }: { ctx: any }) {
                                 <Settings size={14} />
                                 এডিট
                               </button>
-                              <button
-                                onClick={() => toggleRole(p.id, p.role)}
+                              <select
+                                value={p.role}
+                                onChange={(e) => setUserRole(p.id, e.target.value)}
                                 disabled={p.id === user.id}
-                                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-gray-300 disabled:cursor-not-allowed"
+                                className="text-sm font-semibold text-indigo-600 border border-gray-200 rounded px-2 py-1 disabled:text-gray-300 disabled:cursor-not-allowed"
                               >
-                                {p.role === 'admin' ? 'স্টাফ বানাও' : 'অ্যাডমিন বানাও'}
-                              </button>
+                                <option value="admin">অ্যাডমিন</option>
+                                <option value="staff">স্টাফ</option>
+                                <option value="counter_operator">কাউন্টার অপারেটর</option>
+                              </select>
                             </div>
                           </td>
                         </tr>
