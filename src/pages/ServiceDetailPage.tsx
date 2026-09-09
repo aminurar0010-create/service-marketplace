@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase, Service, ServiceRequiredDocument } from '../lib/supabase'
 import { getServiceEmoji } from '../lib/serviceEmoji'
 import ServiceCard from '../components/ServiceCard'
+import { useSEO } from '../lib/useSEO'
 import { ArrowLeft, Clock, FileText } from 'lucide-react'
 
 export default function ServiceDetailPage() {
@@ -12,6 +13,13 @@ export default function ServiceDetailPage() {
   const [relatedServices, setRelatedServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+
+  useSEO(
+    service ? `${service.name} — মনিরামপুর, যশোর | নিউ প্রিন্টার্স` : undefined,
+    service
+      ? `${service.name} — সুন্দলপুর বাজার, মনিরামপুর, যশোর থেকে অর্ডার করুন। মূল্য ৳${service.price}। ${(service.description || '').slice(0, 100)}`
+      : undefined
+  )
 
   useEffect(() => {
     const load = async () => {

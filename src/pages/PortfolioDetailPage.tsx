@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase, PortfolioProject } from '../lib/supabase'
+import { useSEO } from '../lib/useSEO'
 import { ArrowLeft, ExternalLink, Globe } from 'lucide-react'
 
 export default function PortfolioDetailPage() {
@@ -8,6 +9,11 @@ export default function PortfolioDetailPage() {
   const [project, setProject] = useState<PortfolioProject | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+
+  useSEO(
+    project ? `${project.title} | নিউ প্রিন্টার্স` : undefined,
+    project ? (project.description || project.title).slice(0, 155) : undefined
+  )
 
   useEffect(() => {
     const fetchProject = async () => {

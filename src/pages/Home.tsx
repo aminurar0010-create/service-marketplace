@@ -10,8 +10,13 @@ import WhyChooseUs from './home/WhyChooseUs'
 import Gallery from './home/Gallery'
 import Contact from './home/Contact'
 import ServiceCard from '../components/ServiceCard'
+import { useSEO } from '../lib/useSEO'
 
 export default function Home() {
+  useSEO(
+    'নিউ প্রিন্টার্স — সরকারি কাগজপত্র, প্রিন্টিং ও ডিজিটাল সেবা',
+    'সুন্দলপুর বাজার, মনিরামপুর, যশোর — পাসপোর্ট, জন্ম সনদ, ড্রাইভিং লাইসেন্স থেকে ওয়েবসাইট তৈরি, সব সেবা এক ঠিকানায়।'
+  )
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
 

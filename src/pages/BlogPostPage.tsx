@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase, BlogPost } from '../lib/supabase'
+import { useSEO } from '../lib/useSEO'
 import { ArrowLeft } from 'lucide-react'
 
 export default function BlogPostPage() {
@@ -8,6 +9,11 @@ export default function BlogPostPage() {
   const [post, setPost] = useState<BlogPost | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+
+  useSEO(
+    post ? `${post.title} | নিউ প্রিন্টার্স` : undefined,
+    post ? (post.excerpt || post.title).slice(0, 155) : undefined
+  )
 
   useEffect(() => {
     const fetchPost = async () => {
