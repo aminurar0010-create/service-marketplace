@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Clock3, Zap, FileWarning, Loader2, CheckCircle2 } from 'lucide-react'
 import QuickOrderModal from './QuickOrderModal'
+import SmartAssistant from './SmartAssistant'
 
 // "আজকের কাজ" ড্যাশবোর্ড — Admin login করলেই সবচেয়ে আগে এটা দেখা যায়।
 // লক্ষ্য: একনজরে বোঝা যাক আজ কোন কাজগুলো আগে করা দরকার।
@@ -73,6 +74,8 @@ export default function TodayDashboard({ ctx }: { ctx: any }) {
           <Zap size={16} /> কুইক অর্ডার
         </button>
       </div>
+
+      <SmartAssistant ctx={ctx} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {widgets.map((w) => {
