@@ -24,6 +24,8 @@ import BlogPostPage from './pages/BlogPostPage'
 import PromptLibrary from './pages/PromptLibrary'
 import PortfolioDetailPage from './pages/PortfolioDetailPage'
 import ServiceDetailPage from './pages/ServiceDetailPage'
+import Courses from './pages/Courses'
+import CourseDetailPage from './pages/CourseDetailPage'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -101,6 +103,8 @@ export default function App() {
           <Route path="/prompts" element={<PromptLibrary />} />
           <Route path="/portfolio/:id" element={<PortfolioDetailPage />} />
           <Route path="/service/:id" element={<ServiceDetailPage />} />
+          <Route path="/courses" element={<Courses />} />
+          <Route path="/courses/:slug" element={<CourseDetailPage />} />
 
           {/* কাস্টমার অ্যাকাউন্ট */}
           <Route

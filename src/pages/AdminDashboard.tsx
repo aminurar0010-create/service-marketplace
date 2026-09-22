@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import TodayDashboard from '../admin/TodayDashboard'
@@ -33,8 +33,10 @@ import AIPromptsTab from '../admin/AIPromptsTab'
 import PortfolioTab from '../admin/PortfolioTab'
 import CustomerLedgerTab from '../admin/CustomerLedgerTab'
 import LeadsTab from '../admin/LeadsTab'
+import CoursesTab from '../admin/CoursesTab'
+import EnrollmentsTab from '../admin/EnrollmentsTab'
 
-type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads' | 'templates'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads' | 'templates' | 'courses' | 'enrollments'
 
 interface NavItem {
   id: Tab
@@ -682,6 +684,8 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
     { id: 'leads', label: 'লিড ও AI প্রপোজাল', icon: Sparkles },
     { id: 'templates', label: 'মেসেজ টেমপ্লেট', icon: MessageSquare },
     { id: 'portfolio', label: 'আমাদের কাজ', icon: Briefcase },
+    { id: 'courses', label: 'Training Courses', icon: GraduationCap },
+    { id: 'enrollments', label: 'Student Enrollments', icon: BookUser },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
 
@@ -849,6 +853,8 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'leads' && <LeadsTab />}
           {activeTab === 'templates' && <MessageTemplatesTab />}
           {activeTab === 'portfolio' && <PortfolioTab />}
+          {activeTab === 'courses' && <CoursesTab />}
+          {activeTab === 'enrollments' && <EnrollmentsTab />}
         </div>
       </main>
 

@@ -422,6 +422,43 @@ export function toWhatsAppNumber(phone: string): string {
   return digits
 }
 
+// ট্রেনিং কোর্স মডিউল
+export interface Course {
+  id: string
+  title: string
+  slug: string
+  summary?: string | null
+  description?: string | null
+  duration_label?: string | null
+  fee: number
+  cover_image_url?: string | null
+  is_active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CourseModule {
+  id: string
+  course_id: string
+  title: string
+  description?: string | null
+  display_order: number
+  created_at: string
+}
+
+export interface Enrollment {
+  id: string
+  course_id: string
+  full_name: string
+  phone: string
+  email?: string | null
+  address?: string | null
+  message?: string | null
+  status: 'pending' | 'contacted' | 'confirmed' | 'cancelled'
+  created_at: string
+}
+
 /**
  * অ্যাডমিন অ্যাক্টিভিটি লগ — যেকোনো গুরুত্বপূর্ণ অ্যাকশনের পর কল করুন।
  * ব্যর্থ হলেও মূল অ্যাকশন আটকাবে না (শুধু কনসোলে ত্রুটি দেখাবে)।
