@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
-  Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, Menu, X, TrendingUp,
+  Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
   DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
@@ -56,8 +56,27 @@ interface StatCard {
 
 export default function AdminDashboardV2({ user, role }: { user: any; role?: string }) {
   const [activeTab, setActiveTab] = useState<Tab>('today')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('admin_sidebar_open')
+      return saved === null ? true : saved === 'true'
+    } catch {
+      return true
+    }
+  })
   const [, setMobileMenuOpen] = useState(false)
+
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('admin_sidebar_open', String(next))
+      } catch {
+        // localStorage অনুপলব্ধ হলে নিরবে এড়িয়ে যান
+      }
+      return next
+    })
+  }
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -739,13 +758,18 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* শীর্ষ নেভিগেশন বার */}
-      <header className="fixed top-0 right-0 left-0 md:left-64 h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 z-40 shadow-sm">
+      <header
+        className={`fixed top-0 right-0 left-0 h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 z-40 shadow-sm transition-all duration-300 ${
+          sidebarOpen ? 'md:left-64' : 'md:left-0'
+        }`}
+      >
         <div className="flex items-center justify-between h-full px-4 md:px-6">
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition"
+            onClick={toggleSidebar}
+            title={sidebarOpen ? 'সাইডবার হাইড করুন' : 'সাইডবার দেখান'}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition"
           >
-            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            <MoreVertical size={24} />
           </button>
           
           <div className="flex-1"></div>
@@ -763,7 +787,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
       {/* সাইডবার */}
       <aside
         className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 overflow-y-auto transition-all duration-300 z-30 ${
-          !sidebarOpen ? '-translate-x-full md:translate-x-0' : ''
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <nav className="p-4 space-y-2">
@@ -796,7 +820,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
       </aside>
 
       {/* মূল কন্টেন্ট */}
-      <main className="pt-20 md:pt-20 md:ml-64">
+      <main className={`pt-20 md:pt-20 transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-0'}`}>
         <div className="p-4 md:p-8 max-w-7xl">
           {/* স্ট্যাটস কার্ড */}
           {activeTab === 'orders' && (

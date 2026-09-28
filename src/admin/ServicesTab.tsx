@@ -1,7 +1,33 @@
-import { Layers, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Layers, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 
 export default function ServicesTab({ ctx }: { ctx: any }) {
   const { services, setShowServiceModal, setEditingService, toggleServiceActive, deleteService } = ctx
+
+  const [searchText, setSearchText] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('সব')
+
+  const categories = useMemo(() => {
+    const set = new Set<string>()
+    services.forEach((s: any) => {
+      if (s.category) set.add(s.category)
+    })
+    return ['সব', ...Array.from(set).sort()]
+  }, [services])
+
+  const filteredServices = useMemo(() => {
+    const query = searchText.trim().toLowerCase()
+    return services.filter((s: any) => {
+      const matchesCategory = categoryFilter === 'সব' || s.category === categoryFilter
+      if (!matchesCategory) return false
+      if (!query) return true
+      return (
+        (s.name || '').toLowerCase().includes(query) ||
+        (s.description || '').toLowerCase().includes(query) ||
+        (s.category || '').toLowerCase().includes(query)
+      )
+    })
+  }, [services, searchText, categoryFilter])
 
   return (
           <div className="bg-white rounded-lg shadow">
@@ -25,6 +51,35 @@ export default function ServicesTab({ ctx }: { ctx: any }) {
               </button>
             </div>
 
+            {/* সার্চ ও ক্যাটাগরি ফিল্টার */}
+            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="নাম, বিবরণ বা ক্যাটাগরি দিয়ে সার্চ করুন..."
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-64"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c === 'সব' ? 'সব ক্যাটাগরি' : c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="px-6 py-2 text-xs text-gray-500">
+              {filteredServices.length} টি সার্ভিস দেখানো হচ্ছে ({services.length} টির মধ্যে)
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -38,14 +93,14 @@ export default function ServicesTab({ ctx }: { ctx: any }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {services.length === 0 ? (
+                  {filteredServices.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        কোনো সার্ভিস পাওয়া যায়নি
+                        {services.length === 0 ? 'কোনো সার্ভিস পাওয়া যায়নি' : 'সার্চের সাথে মিলে এমন কোনো সার্ভিস পাওয়া যায়নি'}
                       </td>
                     </tr>
                   ) : (
-                    services.map((s: any) => (
+                    filteredServices.map((s: any) => (
                       <tr key={s.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
