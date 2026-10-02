@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
+import { supabase, ShopCustomerSummary, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { 
@@ -19,6 +19,9 @@ import GalleryTab from '../admin/GalleryTab'
 import ReviewsTab from '../admin/ReviewsTab'
 import CashBookTab from '../admin/CashBookTab'
 import DueCollectionTab from '../admin/DueCollectionTab'
+import GlobalSearch from '../admin/GlobalSearch'
+import CustomerProfileModal from '../admin/CustomerProfileModal'
+import OrderDetailModal from '../admin/OrderDetailModal'
 import ReportsTab from '../admin/ReportsTab'
 import SettingsTab from '../admin/SettingsTab'
 import InventoryTab from '../admin/InventoryTab'
@@ -81,6 +84,8 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
 
   const [orders, setOrders] = useState<Order[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [searchCustomer, setSearchCustomer] = useState<ShopCustomerSummary | null>(null)
+  const [searchOrder, setSearchOrder] = useState<any | null>(null)
   const [staffList, setStaffList] = useState<Profile[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [coupons, setCoupons] = useState<Coupon[]>([])
@@ -774,7 +779,13 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
             <MoreVertical size={24} />
           </button>
           
-          <div className="flex-1"></div>
+          <GlobalSearch
+            onOpenCustomer={setSearchCustomer}
+            onOpenOrder={async (id) => {
+              const { data } = await supabase.from('orders').select('*').eq('id', id).maybeSingle()
+              if (data) setSearchOrder(data)
+            }}
+          />
           
           <div className="flex items-center gap-4">
             <div className="text-right">
@@ -785,6 +796,11 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           </div>
         </div>
       </header>
+
+      {searchCustomer && (
+        <CustomerProfileModal customer={searchCustomer} onClose={() => setSearchCustomer(null)} onChanged={() => setSearchCustomer(null)} />
+      )}
+      {searchOrder && <OrderDetailModal order={searchOrder} getServiceName={getServiceName} onClose={() => setSearchOrder(null)} />}
 
       {/* সাইডবার */}
       <aside
