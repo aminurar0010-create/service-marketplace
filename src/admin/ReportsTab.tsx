@@ -3,14 +3,16 @@ import { Order, Service } from '../lib/supabase'
 import DailyReport from './reports/DailyReport'
 import ServiceReport from './reports/ServiceReport'
 import CustomerStaffReport from './reports/CustomerStaffReport'
+import MonthlyReport from './reports/MonthlyReport'
 import LegacyOverview from './reports/LegacyOverview'
 
-type ReportView = 'daily' | 'service' | 'customer' | 'overview'
+type ReportView = 'daily' | 'service' | 'customer' | 'monthly' | 'overview'
 
 const VIEWS: { id: ReportView; label: string }[] = [
   { id: 'daily', label: 'দৈনিক রিপোর্ট' },
   { id: 'service', label: 'সার্ভিস-ভিত্তিক' },
   { id: 'customer', label: 'কাস্টমার ও স্টাফ' },
+  { id: 'monthly', label: 'মান্থলি রিপোর্ট' },
   { id: 'overview', label: 'অর্ডার ওভারভিউ' },
 ]
 
@@ -40,6 +42,7 @@ export default function ReportsTab({ services, orders }: { services: Service[]; 
       )}
       {view === 'service' && <ServiceReport services={services} orders={orders} />}
       {view === 'customer' && <CustomerStaffReport />}
+      {view === 'monthly' && <MonthlyReport orders={orders} />}
       {view === 'overview' && <LegacyOverview services={services} orders={orders} />}
     </div>
   )

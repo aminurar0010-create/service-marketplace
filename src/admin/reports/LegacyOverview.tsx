@@ -1,12 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { PieChart, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
-import { supabase, CashTransaction, Order, Service } from '../../lib/supabase'
+import { useMemo } from 'react'
+import { PieChart, TrendingUp } from 'lucide-react'
+import { Order, Service } from '../../lib/supabase'
 
 const SLICE_COLORS = ['#4f46e5', '#059669', '#d97706', '#dc2626', '#0891b2', '#7c3aed', '#db2777', '#65a30d']
-
-function monthKey(dateStr: string) {
-  return dateStr.slice(0, 7) // YYYY-MM
-}
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180
@@ -21,27 +17,6 @@ function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle
 }
 
 export default function LegacyOverview({ services, orders }: { services: Service[]; orders: Order[] }) {
-  const [cashTx, setCashTx] = useState<CashTransaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
-
-  useEffect(() => {
-    fetchCashTx()
-  }, [])
-
-  const fetchCashTx = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase.from('cash_transactions').select('*')
-      if (error) throw error
-      setCashTx(data || [])
-    } catch (error) {
-      console.error('ক্যাশ ডেটা লোড ত্রুটি:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // --- সবচেয়ে জনপ্রিয় সার্ভিস (পাই চার্ট) ---
   const popularServices = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -97,90 +72,8 @@ export default function LegacyOverview({ services, orders }: { services: Service
       .sort((a, b) => b.profit - a.profit)
   }, [orders, services])
 
-  // --- মাসিক প্রফিট-লস ---
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>()
-    orders.forEach((o) => months.add(monthKey(o.created_at)))
-    cashTx.forEach((t) => months.add(monthKey(t.entry_date)))
-    months.add(new Date().toISOString().slice(0, 7))
-    return Array.from(months).sort().reverse()
-  }, [orders, cashTx])
-
-  const monthlyReport = useMemo(() => {
-    const orderRevenue = orders
-      .filter((o) => monthKey(o.created_at) === selectedMonth && o.payment_status === 'paid')
-      .reduce((sum, o) => sum + Number(o.total_amount), 0)
-
-    const cashIncome = cashTx
-      .filter((t) => monthKey(t.entry_date) === selectedMonth && t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0)
-
-    const cashExpense = cashTx
-      .filter((t) => monthKey(t.entry_date) === selectedMonth && t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0)
-
-    const totalRevenue = orderRevenue + cashIncome
-    const profit = totalRevenue - cashExpense
-
-    return { orderRevenue, cashIncome, cashExpense, totalRevenue, profit }
-  }, [orders, cashTx, selectedMonth])
-
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <DollarSign className="text-indigo-600" size={22} />
-            মান্থলি প্রফিট-লস রিপোর্ট
-          </h2>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            {availableMonths.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-xs text-gray-500 font-semibold">অর্ডার থেকে আয় (পেইড)</p>
-              <p className="text-xl font-bold text-gray-800 mt-1">৳{monthlyReport.orderRevenue}</p>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <p className="text-xs text-gray-500 font-semibold flex items-center gap-1">
-                <TrendingUp size={12} /> ক্যাশ আয়
-              </p>
-              <p className="text-xl font-bold text-green-700 mt-1">৳{monthlyReport.cashIncome}</p>
-            </div>
-            <div className="bg-red-50 rounded-lg p-4">
-              <p className="text-xs text-gray-500 font-semibold flex items-center gap-1">
-                <TrendingDown size={12} /> মোট ব্যয়
-              </p>
-              <p className="text-xl font-bold text-red-700 mt-1">৳{monthlyReport.cashExpense}</p>
-            </div>
-            <div className={`rounded-lg p-4 ${monthlyReport.profit >= 0 ? 'bg-indigo-50' : 'bg-red-50'}`}>
-              <p className="text-xs text-gray-500 font-semibold">নিট লাভ/ক্ষতি</p>
-              <p className={`text-xl font-bold mt-1 ${monthlyReport.profit >= 0 ? 'text-indigo-700' : 'text-red-700'}`}>
-                ৳{monthlyReport.profit}
-              </p>
-            </div>
-          </div>
-        )}
-        <p className="text-xs text-gray-400 mt-4">
-          * নিট লাভ = (পেইড অর্ডার রাজস্ব + ক্যাশ-বুক আয়) − ক্যাশ-বুক ব্যয়। স্টাফ কমিশন "কমিশন ও পারফরম্যান্স" ট্যাবে আলাদাভাবে দেখা যাবে।
-        </p>
-      </div>
-
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
           <PieChart className="text-indigo-600" size={22} />

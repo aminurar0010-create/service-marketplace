@@ -14,13 +14,13 @@
 | A | Unified Customer System (ফোন-ভিত্তিক) | ✅ সম্পন্ন (GitHub push হয়েছে, commit 3dab090) |
 | B | Counter Sales v2 (Due/Partial Payment + Invoice No.) | ✅ সম্পন্ন (push হয়েছে, commit f8e552b; SQL রান ও লাইভে কাজ করছে — মালিক নিশ্চিত করেছেন) |
 | C | Business Accounting (Due আদায়, Cashbook সংযোগ, Expense) | ✅ কোড সম্পন্ন ও push হয়েছে (SQL রান + লাইভ টেস্ট বাকি — নিচে দেখুন) |
-| D | Reports (Daily/Monthly/Service/Customer/Staff) | ⬜ বাকি |
+| D | Reports (Daily/Monthly/Service/Customer/Staff) | ✅ কোড সম্পন্ন ও push হয়েছে (নতুন SQL নেই; লাইভ টেস্ট বাকি) |
 | E | Website Integration + Global Search + ব্র্যান্ডিং | ⬜ বাকি |
 | F | Training Management (Attendance, Fee, Certificate) | ⬜ বাকি |
 | G | Staff Permission, Security ও Mobile পালিশ | ⬜ বাকি |
 | H | AI Business Assistant ও Smart Automation | ⬜ বাকি |
 
-**বর্তমান ফেজ:** D — (ফেজ C-র SQL `supabase_phaseC_accounting_migration.sql` Supabase-এ রান করে লাইভে টেস্ট করার পর শুরু করুন)।
+**বর্তমান ফেজ:** E — (ফেজ C-র SQL রান করা এবং ফেজ C ও D লাইভে টেস্ট করার পর শুরু করুন)।
 **রিপো:** `aminurar0010-create/service-marketplace`, branch `main`, সর্বশেষ ফেজ C commit দেখুন (git log)
 
 **ফেজ A — স্থায়ী তথ্য (পরের ফেজগুলোর জন্য জরুরি)**
@@ -53,6 +53,17 @@
 - ⚠️ হিসাব বন্ধের পরে ঐ তারিখে নতুন এন্ট্রি হলে সতর্কবার্তা আসে, কিন্তু আটকানো হয় না। ক্যাশ-বুকের অটো এন্ট্রি মুছলে (কনফার্ম সহ) বিক্রির হিসাবের সাথে অমিল হতে পারে।
 - ⚠️ Due আদায়/হিসাব বন্ধ এখনো `counter_operator` পারে না (ফেজ G-র Permission ম্যাট্রিক্স-এর সিদ্ধান্ত)। অনলাইন অর্ডারের Due এখনো হিসাবে নেই (অর্ডার হয় paid, নয় unpaid)।
 - ফেজ D-র জন্য: Daily Report-এর আয়-ব্যয় `cash_transactions` থেকে, মাধ্যমভিত্তিক ভাগ `day_summary()`-র যুক্তি অনুযায়ী; Staff-wise = `pos_sales.created_by`; Due তালিকা = `customer_dues`।
+
+**ফেজ D — কী হয়েছে** (নতুন SQL নেই — ফেজ C-র `day_summary`, `customer_dues` ইত্যাদি ব্যবহার করে)
+- `ReportsTab.tsx` এখন শুধু ট্যাব-সুইচার; রিপোর্টগুলো `src/admin/reports/`-এ: `reportUtils.ts` (ঢাকা-সময় রেঞ্জ, `fetchAll` পেজিনেশন, `downloadCsv` [BOM সহ], `printReport`), `DailyReport.tsx`, `ServiceReport.tsx`, `CustomerStaffReport.tsx`, `MonthlyReport.tsx`, `LegacyOverview.tsx` (পুরনো জনপ্রিয় সার্ভিস পাই-চার্ট + সার্ভিস-ভিত্তিক প্রফিট, অপরিবর্তিত)।
+- **Daily:** নতুন/পুরনো/মোট কাস্টমার, POS বিক্রি, নতুন বাকি, বাকি আদায়, অনলাইন পেইড, আয়-ব্যয়-নিট (`day_summary()` — ক্যাশ-বুকের সাথে একই হিসাব), মাধ্যমভিত্তিক ভাগ, ব্যয়ের ক্যাটাগরি, প্রিন্ট।
+- **Service:** আজ/৭ দিন/এই মাস; POS আইটেম + অনলাইন অর্ডার একসাথে; পরিমাণ ও রেভিনিউ; বার চার্ট; CSV।
+- **Customer/Staff:** বকেয়া তালিকা, শীর্ষ ১৫ কাস্টমার (সর্বকালের), স্টাফ-ভিত্তিক বিক্রি/বাকি/আদায় (`pos_sales.created_by`, `sale_payments.created_by`); CSV।
+- **Monthly:** আয়-ব্যয়-নিট, ক্যাটাগরি, দিনভিত্তিক, POS বিল/পেইড/বাকি; প্রিন্ট ও CSV।
+- 🔧 **বাগ ফিক্স:** পুরনো মান্থলি রিপোর্ট "পেইড অর্ডার + ক্যাশ আয়" যোগ করত — ফেজ C-র পর অনলাইন অর্ডার ক্যাশ-বুকেও যায়, ফলে দ্বিগুণ হতো। এখন শুধু যে পেইড অর্ডারের ক্যাশ-বুক এন্ট্রি নেই (পুরনো) সেগুলোই আলাদা যোগ হয়।
+- ⚠️ রিপোর্ট ট্যাব এখনো শুধু admin/staff (`counter_operator`-এর জন্য বন্ধ — ফেজ G)। স্টাফের নাম `profiles` টেবিল থেকে আসে; RLS-এ staff অন্যের নাম না দেখলে "অজানা স্টাফ" দেখাবে (ফেজ G-তে RLS রিভিউয়ে ঠিক করা যাবে)।
+- ⚠️ "শীর্ষ কাস্টমার" সর্বকালের হিসাব (`shop_customer_summary`), সময়সীমা-ফিল্টার নেই। Customer "মোট খরচ"-এ paid/due আলাদা নেই — শুধু বকেয়া কলাম আলাদা।
+- ফেজ E-র জন্য: Global Search-এ `shop_customers`, `pos_sales.invoice_no`, `orders.tracking_id` ব্যবহার করুন; `CustomerProfileModal`-এ বকেয়া আদায়ের বাটন যোগ করা যেতে পারে।
 
 ---
 
