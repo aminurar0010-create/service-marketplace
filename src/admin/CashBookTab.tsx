@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Wallet, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase, CashTransaction, Order } from '../lib/supabase'
 import DailyClosePanel from './DailyClosePanel'
+import { canDo } from '../lib/permissions'
 import { PAY_METHODS, PayMethod, payMethodLabel } from './pos/posTypes'
 
 // ঢাকা সময় অনুযায়ী আজকের তারিখ (UTC ধরলে রাত ১২–৬টায় আগের দিন আসত)
@@ -13,7 +14,8 @@ const EXPENSE_CATEGORIES = ['কাগজ (Paper)', 'কালি (Ink)', 'ট�
 const SOURCE_LABELS: Record<string, string> = { pos: 'POS', due_collection: 'বাকি আদায়', online_order: 'অনলাইন অর্ডার', course_fee: 'কোর্স ফি' }
 
 // orders প্রপ আর লাগে না (দিনের হিসাব এখন ডাটাবেস থেকে) — AdminDashboard-এর কল অপরিবর্তিত রাখতে রাখা হলো
-export default function CashBookTab(_props: { orders?: Order[] }) {
+export default function CashBookTab({ role }: { orders?: Order[]; role?: string }) {
+  const canDelete = canDo(role, 'cashbook.delete')
   const [transactions, setTransactions] = useState<CashTransaction[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -271,13 +273,15 @@ export default function CashBookTab(_props: { orders?: Order[] }) {
                       {tx.type === 'income' ? '+' : '-'}৳{tx.amount}
                     </td>
                     <td className="px-6 py-3">
-                      <button
-                        onClick={() => deleteEntry(tx)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
-                        title="মুছে ফেলুন"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => deleteEntry(tx)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
+                          title="মুছে ফেলুন"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

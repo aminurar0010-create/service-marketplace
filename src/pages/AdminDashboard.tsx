@@ -20,6 +20,7 @@ import ReviewsTab from '../admin/ReviewsTab'
 import CashBookTab from '../admin/CashBookTab'
 import DueCollectionTab from '../admin/DueCollectionTab'
 import GlobalSearch from '../admin/GlobalSearch'
+import { canViewTab } from '../lib/permissions'
 import TrainingTab from '../admin/training/TrainingTab'
 import CustomerProfileModal from '../admin/CustomerProfileModal'
 import OrderDetailModal from '../admin/OrderDetailModal'
@@ -717,17 +718,15 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
 
-  // কাউন্টার অপারেটর শুধু Order/Customer/Payment সংক্রান্ত ট্যাবগুলো দেখবে
-  const counterOperatorAllowedTabs = ['today', 'orders', 'customer_ledger', 'cashbook']
-  const visibleNavItems =
-    role === 'counter_operator' ? navItems.filter((n) => counterOperatorAllowedTabs.includes(n.id)) : navItems
+  // Permission ম্যাট্রিক্স (src/lib/permissions.ts) অনুযায়ী ট্যাব ফিল্টার
+  const visibleNavItems = navItems.filter((n) => canViewTab(role, n.id))
 
   useEffect(() => {
-    if (role === 'counter_operator' && !counterOperatorAllowedTabs.includes(activeTab)) {
+    if (!canViewTab(role, activeTab)) {
       setActiveTab('today')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role])
+  }, [role, activeTab])
 
   const statCards: StatCard[] = [
     {
@@ -884,7 +883,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'messages' && <MessagesTab ctx={ctx} />}
           {activeTab === 'gallery' && <GalleryTab ctx={ctx} />}
           {activeTab === 'reviews' && <ReviewsTab />}
-          {activeTab === 'cashbook' && <CashBookTab orders={orders} />}
+          {activeTab === 'cashbook' && <CashBookTab orders={orders} role={role} />}
           {activeTab === 'reports' && <ReportsTab services={services} orders={orders} />}
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'inventory' && <InventoryTab />}
