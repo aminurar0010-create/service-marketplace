@@ -15,12 +15,12 @@
 | B | Counter Sales v2 (Due/Partial Payment + Invoice No.) | ✅ সম্পন্ন (push হয়েছে, commit f8e552b; SQL রান ও লাইভে কাজ করছে — মালিক নিশ্চিত করেছেন) |
 | C | Business Accounting (Due আদায়, Cashbook সংযোগ, Expense) | ✅ কোড সম্পন্ন ও push হয়েছে (SQL রান + লাইভ টেস্ট বাকি — নিচে দেখুন) |
 | D | Reports (Daily/Monthly/Service/Customer/Staff) | ✅ কোড সম্পন্ন ও push হয়েছে (নতুন SQL নেই; লাইভ টেস্ট বাকি) |
-| E | Website Integration + Global Search + ব্র্যান্ডিং | ⬜ বাকি |
+| E | Website Integration + Global Search + ব্র্যান্ডিং | ✅ কোড সম্পন্ন ও push হয়েছে (SQL রান + লাইভ টেস্ট বাকি) |
 | F | Training Management (Attendance, Fee, Certificate) | ⬜ বাকি |
 | G | Staff Permission, Security ও Mobile পালিশ | ⬜ বাকি |
 | H | AI Business Assistant ও Smart Automation | ⬜ বাকি |
 
-**বর্তমান ফেজ:** E — (ফেজ C-র SQL রান করা এবং ফেজ C ও D লাইভে টেস্ট করার পর শুরু করুন)।
+**বর্তমান ফেজ:** F — (ফেজ C ও E-র SQL রান করা এবং C, D, E লাইভে টেস্ট করার পর শুরু করুন)।
 **রিপো:** `aminurar0010-create/service-marketplace`, branch `main`, সর্বশেষ ফেজ C commit দেখুন (git log)
 
 **ফেজ A — স্থায়ী তথ্য (পরের ফেজগুলোর জন্য জরুরি)**
@@ -64,6 +64,14 @@
 - ⚠️ রিপোর্ট ট্যাব এখনো শুধু admin/staff (`counter_operator`-এর জন্য বন্ধ — ফেজ G)। স্টাফের নাম `profiles` টেবিল থেকে আসে; RLS-এ staff অন্যের নাম না দেখলে "অজানা স্টাফ" দেখাবে (ফেজ G-তে RLS রিভিউয়ে ঠিক করা যাবে)।
 - ⚠️ "শীর্ষ কাস্টমার" সর্বকালের হিসাব (`shop_customer_summary`), সময়সীমা-ফিল্টার নেই। Customer "মোট খরচ"-এ paid/due আলাদা নেই — শুধু বকেয়া কলাম আলাদা।
 - ফেজ E-র জন্য: Global Search-এ `shop_customers`, `pos_sales.invoice_no`, `orders.tracking_id` ব্যবহার করুন; `CustomerProfileModal`-এ বকেয়া আদায়ের বাটন যোগ করা যেতে পারে।
+
+**ফেজ E — কী হয়েছে**
+- SQL: `supabase_phaseE_integration_migration.sql` (আইডেম্পটেন্ট; Supabase-এ রান করতে হবে)। অনলাইন অর্ডার → `shop_customers` লিংক ফেজ A-র ট্রিগারেই ছিল (insert-এ); নতুন: ফোন বদলালে রিলিংক ট্রিগার (`orders`, `pos_sales`), পুরনো আনলিংকড সারির ব্যাকফিল, কাস্টমার পোর্টালের `claim_shop_profile()` ও `get_my_shop_account()`, `shop_claim_attempts` টেবিল (১ ঘণ্টায় ৫টি ভুল চেষ্টার সীমা)। শেষের যাচাই-কোয়েরিতে `orders_unlinked`, `pos_unlinked`, `duplicate_phones` ০ হওয়া উচিত।
+- `src/admin/GlobalSearch.tsx` (অ্যাডমিন টপবারে): কাস্টমার নাম/ফোন/কোড, ইনভয়েস নং, অর্ডার ট্র্যাকিং নং; ফল ক্লিক করলে `CustomerProfileModal` বা `OrderDetailModal` খোলে; ১০+ ডিজিটের ফোনে Enter দিলে সরাসরি প্রোফাইল।
+- ব্র্যান্ডিং: নতুন `src/pages/home/Divisions.tsx` (৪ বিভাগ: Digital Services, Printing & Design, IT Solution, Training Center); Hero, About, Home SEO ও `index.html` টাইটেল আপডেট। ⚠️ বিভাগের বিবরণ/লিংক আমার অনুমানে লেখা (যেমন প্রশিক্ষণ "৩ ও ৬ মাসের কোর্স", IT Solution → `/order`) — মালিককে দেখিয়ে ঠিক করে নিন।
+- কাস্টমার ড্যাশবোর্ডে নতুন ট্যাব "দোকানের হিসাব ও বকেয়া" (`src/components/MyShopAccount.tsx`): POS ইনভয়েস, বাকি, পরিশোধিত। প্রথমবার প্রোফাইল দাবি করতে রশিদের ইনভয়েস নং + মোট অঙ্ক দিতে হয় এবং অ্যাকাউন্টের ফোন মিলতে হয় (ফোন যাচাই/SMS নেই বলে এই সুরক্ষা)।
+- ⚠️ ঝুঁকি: ইনভয়েস নং ক্রমিক, তাই কেউ অন্যের ফোন দিয়ে অ্যাকাউন্ট খুলে অনুমানে চেষ্টা করতে পারে; সীমা ও মোট-অঙ্ক মেলানো এটা কঠিন করে, কিন্তু অসম্ভব নয়। কঠোর করতে চাইলে ফেজ G-তে অ্যাডমিন-অনুমোদন (CustomerProfileModal-এ টগল) যোগ করুন।
+- ⚠️ অনলাইন অর্ডারের বকেয়া এখনো নেই; পোর্টালে শুধু POS-এর বকেয়া। অনলাইন অর্ডার আগের মতো "অর্ডার হিস্ট্রি" ট্যাবে।
 
 ---
 
