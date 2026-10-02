@@ -494,3 +494,50 @@ export async function logActivity(
     console.error('অ্যাক্টিভিটি লগ সংরক্ষণ ত্রুটি:', error)
   }
 }
+
+// ===== ফেজ A — Unified Customer System =====
+export type ShopCustomerType = 'regular' | 'vip' | 'student' | 'business'
+
+export interface ShopCustomer {
+  id: string
+  customer_code: string
+  name: string
+  phone: string
+  address?: string | null
+  customer_type: ShopCustomerType
+  auth_user_id?: string | null
+  created_at: string
+}
+
+export interface ShopCustomerSummary {
+  id: string
+  customer_code: string
+  name: string
+  phone: string
+  address: string | null
+  customer_type: ShopCustomerType
+  created_at: string
+  total_orders: number
+  total_pos_sales: number
+  total_transactions: number
+  total_visits: number
+  total_spent: number
+  total_due: number
+  last_activity_at: string | null
+}
+
+export interface ShopCustomerHistoryRow {
+  source: 'order' | 'pos'
+  ref_no: string
+  title: string
+  amount: number
+  status: string
+  created_at: string
+}
+
+export const CUSTOMER_TYPE_LABELS: Record<ShopCustomerType, string> = {
+  regular: 'সাধারণ',
+  vip: 'VIP',
+  student: 'স্টুডেন্ট',
+  business: 'ব্যবসায়িক',
+}
