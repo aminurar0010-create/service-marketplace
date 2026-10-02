@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import TodayDashboard from '../admin/TodayDashboard'
@@ -20,6 +20,7 @@ import ReviewsTab from '../admin/ReviewsTab'
 import CashBookTab from '../admin/CashBookTab'
 import DueCollectionTab from '../admin/DueCollectionTab'
 import GlobalSearch from '../admin/GlobalSearch'
+import TrainingTab from '../admin/training/TrainingTab'
 import CustomerProfileModal from '../admin/CustomerProfileModal'
 import OrderDetailModal from '../admin/OrderDetailModal'
 import ReportsTab from '../admin/ReportsTab'
@@ -40,7 +41,7 @@ import LeadsTab from '../admin/LeadsTab'
 import CoursesTab from '../admin/CoursesTab'
 import EnrollmentsTab from '../admin/EnrollmentsTab'
 
-type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training'
 
 interface NavItem {
   id: Tab
@@ -712,6 +713,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
     { id: 'portfolio', label: 'আমাদের কাজ', icon: Briefcase },
     { id: 'courses', label: 'Training Courses', icon: GraduationCap },
     { id: 'enrollments', label: 'Student Enrollments', icon: BookUser },
+    { id: 'training', label: 'Students & Training', icon: ClipboardCheck },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
 
@@ -898,6 +900,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'portfolio' && <PortfolioTab />}
           {activeTab === 'courses' && <CoursesTab />}
           {activeTab === 'enrollments' && <EnrollmentsTab />}
+          {activeTab === 'training' && <TrainingTab />}
         </div>
       </main>
 

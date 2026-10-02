@@ -605,3 +605,40 @@ export interface DailyClosing {
   note: string | null
   created_at: string
 }
+
+// ===== ফেজ F — Training Management =====
+export interface StudentOverview {
+  id: string // enrollment id
+  course_id: string
+  course_title: string
+  duration_label: string | null
+  full_name: string
+  phone: string
+  batch_name: string | null
+  start_date: string | null
+  status: string
+  training_status: 'running' | 'completed' | 'dropped'
+  shop_customer_id: string | null
+  fee_total: number
+  discount: number
+  net_fee: number
+  paid: number
+  due: number
+  present_count: number
+  absent_count: number
+  late_count: number
+  leave_count: number
+  total_classes: number
+  certificate_no: string | null
+  certificate_date: string | null
+}
+
+export interface StudentPayment {
+  id: string
+  enrollment_id: string
+  amount: number
+  method: string
+  payment_date: string
+  note: string | null
+  created_at: string
+}
