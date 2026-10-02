@@ -4,7 +4,8 @@ import { supabase, Order, Customer } from '../lib/supabase'
 import { downloadInvoice } from '../lib/invoice'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
-import { Package, FileText, User as UserIcon, LogOut, Save, CheckCircle2 } from 'lucide-react'
+import { Package, FileText, User as UserIcon, LogOut, Save, CheckCircle2, Store } from 'lucide-react'
+import MyShopAccount from '../components/MyShopAccount'
 
 const statusStyles: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -21,7 +22,7 @@ const statusLabels: Record<string, string> = {
 
 export default function CustomerDashboard({ user }: { user: any }) {
   const navigate = useNavigate()
-  const [tab, setTab] = useState<'orders' | 'profile'>('orders')
+  const [tab, setTab] = useState<'orders' | 'shop' | 'profile'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -143,6 +144,15 @@ export default function CustomerDashboard({ user }: { user: any }) {
             অর্ডার হিস্ট্রি
           </button>
           <button
+            onClick={() => setTab('shop')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition ${
+              tab === 'shop' ? 'border-ink-600 text-ink-700' : 'border-transparent text-charcoal/50 hover:text-charcoal'
+            }`}
+          >
+            <Store size={16} />
+            দোকানের হিসাব ও বকেয়া
+          </button>
+          <button
             onClick={() => setTab('profile')}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition ${
               tab === 'profile' ? 'border-ink-600 text-ink-700' : 'border-transparent text-charcoal/50 hover:text-charcoal'
@@ -196,6 +206,8 @@ export default function CustomerDashboard({ user }: { user: any }) {
             )}
           </div>
         )}
+
+        {tab === 'shop' && <MyShopAccount />}
 
         {tab === 'profile' && (
           <div className="bg-white rounded-xl shadow-sm border border-ink-100 p-6 max-w-md">
