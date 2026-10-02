@@ -243,6 +243,8 @@ export interface CashTransaction {
   description?: string | null
   amount: number
   order_id?: string | null
+  payment_method?: string | null
+  source?: 'manual' | 'pos' | 'due_collection' | 'online_order'
   created_by?: string | null
   created_at: string
 }

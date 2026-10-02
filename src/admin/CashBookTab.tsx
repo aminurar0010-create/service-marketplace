@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Wallet, Plus, Trash2, TrendingUp, TrendingDown, Package, CheckCircle2 } from 'lucide-react'
+import { Wallet, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase, CashTransaction, Order } from '../lib/supabase'
+import DailyClosePanel from './DailyClosePanel'
+import { PAY_METHODS, PayMethod, payMethodLabel } from './pos/posTypes'
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
+// ঢাকা সময় অনুযায়ী আজকের তারিখ (UTC ধরলে রাত ১২–৬টায় আগের দিন আসত)
+const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' })
 
-const paymentLabel = (m?: string) => {
-  const map: Record<string, string> = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট', cash: 'ক্যাশ', cod: 'ক্যাশ অন ডেলিভারি', qr: 'সুপার কিউআর' }
-  return m ? map[m] || m : 'অজানা'
-}
+const OTHER = 'অন্যান্য'
+const INCOME_CATEGORIES = ['সার্ভিস', 'পণ্য বিক্রয়', OTHER]
+const EXPENSE_CATEGORIES = ['কাগজ (Paper)', 'কালি (Ink)', 'টোনার (Toner)', 'বিদ্যুৎ বিল', 'ইন্টারনেট', 'স্টাফ পেমেন্ট', OTHER]
+const SOURCE_LABELS: Record<string, string> = { pos: 'POS', due_collection: 'বাকি আদায়', online_order: 'অনলাইন অর্ডার' }
 
-export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
+// orders প্রপ আর লাগে না (দিনের হিসাব এখন ডাটাবেস থেকে) — AdminDashboard-এর কল অপরিবর্তিত রাখতে রাখা হলো
+export default function CashBookTab(_props: { orders?: Order[] }) {
   const [transactions, setTransactions] = useState<CashTransaction[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -18,7 +22,9 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
   const [form, setForm] = useState({
     entry_date: todayStr(),
     type: 'income' as 'income' | 'expense',
-    category: '',
+    category: INCOME_CATEGORIES[0],
+    customCategory: '',
+    method: 'cash' as PayMethod,
     description: '',
     amount: '',
   })
@@ -46,7 +52,8 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
   }
 
   const addEntry = async () => {
-    if (!form.category.trim() || !form.amount || Number(form.amount) <= 0) {
+    const category = form.category === OTHER && form.customCategory.trim() ? form.customCategory.trim() : form.category
+    if (!category || !form.amount || Number(form.amount) <= 0) {
       alert('ক্যাটাগরি ও পরিমাণ সঠিকভাবে দিন')
       return
     }
@@ -55,12 +62,13 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
       const { error } = await supabase.from('cash_transactions').insert({
         entry_date: form.entry_date,
         type: form.type,
-        category: form.category.trim(),
+        category,
+        payment_method: form.method,
         description: form.description.trim() || null,
         amount: Number(form.amount),
       })
       if (error) throw error
-      setForm({ entry_date: todayStr(), type: 'income', category: '', description: '', amount: '' })
+      setForm({ entry_date: todayStr(), type: 'income', category: INCOME_CATEGORIES[0], customCategory: '', method: 'cash', description: '', amount: '' })
       fetchTransactions()
     } catch (error) {
       console.error('এন্ট্রি যোগ ত্রুটি:', error)
@@ -71,7 +79,12 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
   }
 
   const deleteEntry = async (tx: CashTransaction) => {
-    const confirmed = window.confirm('এই এন্ট্রিটি মুছে ফেলতে চান?')
+    const auto = tx.source && tx.source !== 'manual'
+    const confirmed = window.confirm(
+      auto
+        ? 'এটি বিক্রি/আদায়/অর্ডারের সাথে যুক্ত অটো এন্ট্রি। মুছলে ক্যাশ-বুক ও বিক্রির হিসাব আলাদা হয়ে যেতে পারে। তবুও মুছবেন?'
+        : 'এই এন্ট্রিটি মুছে ফেলতে চান?'
+    )
     if (!confirmed) return
     try {
       const { error } = await supabase.from('cash_transactions').delete().eq('id', tx.id)
@@ -95,25 +108,6 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
     return transactions.reduce((sum, t) => sum + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
   }, [transactions])
 
-  // --- দিন শেষের সারাংশ (Daily Closing) — নির্বাচিত দিনের অর্ডার ডেটা থেকে ---
-  const dayOrders = useMemo(
-    () => orders.filter((o) => o.created_at && o.created_at.slice(0, 10) === selectedDate),
-    [orders, selectedDate]
-  )
-  const dayCompletedOrders = dayOrders.filter((o) => ['completed', 'delivered'].includes(o.status))
-  const dayPendingOrders = dayOrders.filter((o) => !['completed', 'delivered', 'cancelled', 'rejected'].includes(o.status))
-  const dayOrderRevenue = dayOrders.reduce((s, o) => s + o.total_amount, 0)
-  const dayDue = dayOrders.filter((o) => o.payment_status !== 'paid').reduce((s, o) => s + o.total_amount, 0)
-
-  const paymentBreakdown = useMemo(() => {
-    const map: Record<string, number> = {}
-    dayOrders.forEach((o) => {
-      const key = o.payment_method || 'অজানা'
-      map[key] = (map[key] || 0) + o.total_amount
-    })
-    return Object.entries(map).sort((a, b) => b[1] - a[1])
-  }, [dayOrders])
-
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -133,49 +127,7 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
         </div>
       </div>
 
-      {/* দিন শেষের সারাংশ (Daily Closing) */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2">
-          <Package size={18} className="text-indigo-600" /> দিন শেষের সারাংশ — {selectedDate}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500">মোট অর্ডার</p>
-            <p className="text-xl font-bold text-gray-800">{dayOrders.length}</p>
-          </div>
-          <div className="bg-green-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <CheckCircle2 size={12} /> সম্পন্ন
-            </p>
-            <p className="text-xl font-bold text-green-700">{dayCompletedOrders.length}</p>
-          </div>
-          <div className="bg-yellow-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500">পেন্ডিং</p>
-            <p className="text-xl font-bold text-yellow-700">{dayPendingOrders.length}</p>
-          </div>
-          <div className="bg-red-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500">বাকি (Due)</p>
-            <p className="text-xl font-bold text-red-700">৳{dayDue}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3 mb-3">
-          {paymentBreakdown.length === 0 ? (
-            <p className="text-sm text-gray-400">এই দিনে কোনো অর্ডার নেই</p>
-          ) : (
-            paymentBreakdown.map(([method, amount]) => (
-              <div key={method} className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-sm">
-                <span className="font-semibold">{paymentLabel(method)}:</span> ৳{amount}
-              </div>
-            ))
-          )}
-        </div>
-        <p className="text-sm text-gray-600">
-          অর্ডার রেভিনিউ: <span className="font-semibold">৳{dayOrderRevenue}</span> • ক্যাশ-বুক আয়:{' '}
-          <span className="font-semibold text-green-600">৳{dayIncome}</span> • ক্যাশ-বুক ব্যয়:{' '}
-          <span className="font-semibold text-red-600">৳{dayExpense}</span> • আনুমানিক নিট:{' '}
-          <span className="font-semibold text-indigo-700">৳{dayOrderRevenue + dayIncome - dayExpense}</span>
-        </p>
-      </div>
+      <DailyClosePanel date={selectedDate} />
 
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
@@ -190,19 +142,37 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
           />
           <select
             value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value as 'income' | 'expense' })}
+            onChange={(e) => {
+              const type = e.target.value as 'income' | 'expense'
+              setForm({ ...form, type, category: (type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES)[0], customCategory: '' })
+            }}
             className="px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             <option value="income">আয় (Income)</option>
             <option value="expense">ব্যয় (Expense)</option>
           </select>
-          <input
-            type="text"
-            placeholder="ক্যাটাগরি (যেমন: ভাড়া, বেতন, নগদ পেমেন্ট)"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none md:col-span-2"
-          />
+          <div className="md:col-span-2 flex gap-2">
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              {(form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            {form.category === OTHER && (
+              <input
+                type="text"
+                placeholder="ক্যাটাগরির নাম"
+                value={form.customCategory}
+                onChange={(e) => setForm({ ...form, customCategory: e.target.value })}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            )}
+          </div>
           <input
             type="number"
             placeholder="পরিমাণ (৳)"
@@ -210,12 +180,23 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             className="px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           />
+          <select
+            value={form.method}
+            onChange={(e) => setForm({ ...form, method: e.target.value as PayMethod })}
+            className="px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          >
+            {PAY_METHODS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
           <input
             type="text"
             placeholder="বিস্তারিত (ঐচ্ছিক)"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none md:col-span-4"
+            className="px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none md:col-span-3"
           />
           <button
             onClick={addEntry}
@@ -255,6 +236,7 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ধরন</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ক্যাটাগরি</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">মাধ্যম</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">বিস্তারিত</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">পরিমাণ</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
@@ -273,7 +255,13 @@ export default function CashBookTab({ orders = [] }: { orders?: Order[] }) {
                         {tx.type === 'income' ? 'আয়' : 'ব্যয়'}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-sm font-medium">{tx.category}</td>
+                    <td className="px-6 py-3 text-sm font-medium">
+                      {tx.category}
+                      {tx.source && SOURCE_LABELS[tx.source] && (
+                        <span className="ml-2 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{SOURCE_LABELS[tx.source]}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-500">{tx.payment_method ? payMethodLabel(tx.payment_method) : '-'}</td>
                     <td className="px-6 py-3 text-sm text-gray-500">{tx.description || '-'}</td>
                     <td
                       className={`px-6 py-3 text-sm font-bold ${
