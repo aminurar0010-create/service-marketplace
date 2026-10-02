@@ -244,7 +244,7 @@ export interface CashTransaction {
   amount: number
   order_id?: string | null
   payment_method?: string | null
-  source?: 'manual' | 'pos' | 'due_collection' | 'online_order'
+  source?: 'manual' | 'pos' | 'due_collection' | 'online_order' | 'course_fee'
   created_by?: string | null
   created_at: string
 }
@@ -546,7 +546,7 @@ export interface ShopCustomerSummary {
 }
 
 export interface ShopCustomerHistoryRow {
-  source: 'order' | 'pos'
+  source: 'order' | 'pos' | 'enrollment'
   ref_no: string
   title: string
   amount: number

@@ -3,12 +3,14 @@ import { supabase, StudentOverview } from '../../lib/supabase'
 import StudentsPanel from './StudentsPanel'
 import AttendancePanel from './AttendancePanel'
 import FeesPanel from './FeesPanel'
+import CertificatePanel from './CertificatePanel'
 
-type View = 'students' | 'attendance' | 'fees'
+type View = 'students' | 'attendance' | 'fees' | 'certificate'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'students', label: 'স্টুডেন্ট তালিকা' },
   { id: 'attendance', label: 'হাজিরা' },
   { id: 'fees', label: 'ফি ও Due' },
+  { id: 'certificate', label: 'সার্টিফিকেট' },
 ]
 
 /** Training Management — স্টুডেন্ট, হাজিরা, ফি/Due, সার্টিফিকেট */
@@ -52,6 +54,7 @@ export default function TrainingTab() {
         {view === 'students' && <StudentsPanel students={students} reload={load} loading={loading} />}
         {view === 'attendance' && <AttendancePanel students={students} reload={load} />}
         {view === 'fees' && <FeesPanel students={students} reload={load} />}
+        {view === 'certificate' && <CertificatePanel students={students} reload={load} />}
       </div>
     </div>
   )

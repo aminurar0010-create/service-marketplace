@@ -10,7 +10,7 @@ const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/
 const OTHER = 'অন্যান্য'
 const INCOME_CATEGORIES = ['সার্ভিস', 'পণ্য বিক্রয়', OTHER]
 const EXPENSE_CATEGORIES = ['কাগজ (Paper)', 'কালি (Ink)', 'টোনার (Toner)', 'বিদ্যুৎ বিল', 'ইন্টারনেট', 'স্টাফ পেমেন্ট', OTHER]
-const SOURCE_LABELS: Record<string, string> = { pos: 'POS', due_collection: 'বাকি আদায়', online_order: 'অনলাইন অর্ডার' }
+const SOURCE_LABELS: Record<string, string> = { pos: 'POS', due_collection: 'বাকি আদায়', online_order: 'অনলাইন অর্ডার', course_fee: 'কোর্স ফি' }
 
 // orders প্রপ আর লাগে না (দিনের হিসাব এখন ডাটাবেস থেকে) — AdminDashboard-এর কল অপরিবর্তিত রাখতে রাখা হলো
 export default function CashBookTab(_props: { orders?: Order[] }) {

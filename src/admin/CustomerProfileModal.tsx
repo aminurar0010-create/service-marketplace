@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { X, Phone, MapPin, Hash, Package, ShoppingCart, Pencil, Save } from 'lucide-react'
+import { X, Phone, MapPin, Hash, Package, ShoppingCart, Pencil, Save, GraduationCap } from 'lucide-react'
 import {
   supabase,
   logActivity,
@@ -141,6 +141,8 @@ export default function CustomerProfileModal({
               <li key={`${h.source}-${h.ref_no}`} className="px-3 py-2.5 flex items-start gap-3">
                 {h.source === 'pos' ? (
                   <ShoppingCart size={16} className="text-green-600 mt-0.5 shrink-0" />
+                ) : h.source === 'enrollment' ? (
+                  <GraduationCap size={16} className="text-amber-600 mt-0.5 shrink-0" />
                 ) : (
                   <Package size={16} className="text-indigo-600 mt-0.5 shrink-0" />
                 )}
