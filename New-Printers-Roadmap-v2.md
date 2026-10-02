@@ -16,11 +16,11 @@
 | C | Business Accounting (Due আদায়, Cashbook সংযোগ, Expense) | ✅ কোড সম্পন্ন ও push হয়েছে (SQL রান + লাইভ টেস্ট বাকি — নিচে দেখুন) |
 | D | Reports (Daily/Monthly/Service/Customer/Staff) | ✅ কোড সম্পন্ন ও push হয়েছে (নতুন SQL নেই; লাইভ টেস্ট বাকি) |
 | E | Website Integration + Global Search + ব্র্যান্ডিং | ✅ কোড সম্পন্ন ও push হয়েছে (SQL রান + লাইভ টেস্ট বাকি) |
-| F | Training Management (Attendance, Fee, Certificate) | ⬜ বাকি |
+| F | Training Management (Attendance, Fee, Certificate) | ✅ কোড সম্পন্ন ও push হয়েছে (SQL রান + লাইভ টেস্ট বাকি) |
 | G | Staff Permission, Security ও Mobile পালিশ | ⬜ বাকি |
 | H | AI Business Assistant ও Smart Automation | ⬜ বাকি |
 
-**বর্তমান ফেজ:** F — (ফেজ C ও E-র SQL রান করা এবং C, D, E লাইভে টেস্ট করার পর শুরু করুন)।
+**বর্তমান ফেজ:** G — (ফেজ F-র SQL রান করে F লাইভে টেস্ট করার পর শুরু করুন)। ফেজ E-র SQL এই ডাটাবেসে রান হয়েছে (যাচাই: unlinked ০, duplicate ০)।
 **রিপো:** `aminurar0010-create/service-marketplace`, branch `main`, সর্বশেষ ফেজ C commit দেখুন (git log)
 
 **ফেজ A — স্থায়ী তথ্য (পরের ফেজগুলোর জন্য জরুরি)**
@@ -72,6 +72,17 @@
 - কাস্টমার ড্যাশবোর্ডে নতুন ট্যাব "দোকানের হিসাব ও বকেয়া" (`src/components/MyShopAccount.tsx`): POS ইনভয়েস, বাকি, পরিশোধিত। প্রথমবার প্রোফাইল দাবি করতে রশিদের ইনভয়েস নং + মোট অঙ্ক দিতে হয় এবং অ্যাকাউন্টের ফোন মিলতে হয় (ফোন যাচাই/SMS নেই বলে এই সুরক্ষা)।
 - ⚠️ ঝুঁকি: ইনভয়েস নং ক্রমিক, তাই কেউ অন্যের ফোন দিয়ে অ্যাকাউন্ট খুলে অনুমানে চেষ্টা করতে পারে; সীমা ও মোট-অঙ্ক মেলানো এটা কঠিন করে, কিন্তু অসম্ভব নয়। কঠোর করতে চাইলে ফেজ G-তে অ্যাডমিন-অনুমোদন (CustomerProfileModal-এ টগল) যোগ করুন।
 - ⚠️ অনলাইন অর্ডারের বকেয়া এখনো নেই; পোর্টালে শুধু POS-এর বকেয়া। অনলাইন অর্ডার আগের মতো "অর্ডার হিস্ট্রি" ট্যাবে।
+
+**ফেজ F — কী হয়েছে**
+- SQL: `supabase_phaseF_training_migration.sql` (আইডেম্পটেন্ট; ফেজ 17, A, C-র পরে রান করুন)। `enrollments`-এ নতুন কলাম: `batch_name`, `start_date`, `fee_total`, `discount`, `training_status` (running/completed/dropped), `completed_at`, `shop_customer_id`। ভর্তি `confirmed` হলে ট্রিগার `enrollment_confirm_hook` স্টুডেন্টকে `shop_customers`-এ (type=student) যুক্ত করে ও কোর্সের ফি বসায়।
+- নতুন টেবিল: `student_attendance` (unique enrollment+তারিখ), `student_payments`, `certificates` (+ `certificate_no_seq`, নম্বর `NP-২০২৬-0001` ধরনের)। ভিউ `student_overview` (ফি/পেইড/Due/হাজিরা/সার্টিফিকেট)। RPC: `collect_student_fee`, `void_student_payment`, `issue_certificate` — সবই শুধু admin।
+- ফি আদায় ক্যাশ-বুকে আয় ('কোর্স ফি', `source='course_fee'`) হিসেবে যায়; `day_summary()` হালনাগাদ — এখন POS ও বাকি আদায় ছাড়া সব ক্যাশ-বুক আয় মাধ্যমভিত্তিক হিসাবে ধরা হয়। ভুল আদায় বাতিল করলে ক্যাশ-বুক এন্ট্রিও মুছে যায়।
+- `get_shop_customer_history()` এখন ভর্তিও (source='enrollment') দেখায়।
+- UI: নতুন নেভ আইটেম "Students & Training" → `src/admin/training/`: `TrainingTab.tsx` (সুইচার), `StudentsPanel.tsx` (তালিকা + ব্যাচ/ফি/ডিসকাউন্ট/স্ট্যাটাস এডিট), `AttendancePanel.tsx` (কোর্স+ব্যাচ+তারিখ ধরে উপস্থিত/দেরি/অনুপস্থিত/ছুটি, "সবাইকে উপস্থিত"), `FeesPanel.tsx` (কিস্তি, Due, ইতিহাস, বাতিল), `CertificatePanel.tsx` + `certificatePrint.ts` (A4 ল্যান্ডস্কেপ সার্টিফিকেট, Completion Record CSV)।
+- ⚠️ সবকিছু এখন **শুধু অ্যাডমিন** (বিদ্যমান `enrollments` RLS-এর সাথে মিল রেখে)। স্টাফকে হাজিরা/ফি নেওয়ার অনুমতি দিতে চাইলে ফেজ G-র Permission ম্যাট্রিক্সে সিদ্ধান্ত নিয়ে RLS ও RPC বদলাতে হবে।
+- ⚠️ সার্টিফিকেটের ডিজাইন, শব্দ ("প্রশিক্ষক", প্রোপ্রাইটরের নাম) ও নম্বর ফরম্যাট আমার অনুমানে — মালিককে দেখিয়ে ঠিক করুন। "আবার প্রিন্ট"-এ ফলাফল (A+) আসে না, কারণ ফলাফল DB-তে `certificates.result`-এ আছে কিন্তু `student_overview` ভিউতে এখনো নেই — চাইলে ভিউতে যোগ করা যায়।
+- ⚠️ ফি/ডিসকাউন্ট পরে বদলালে আগের আদায় অপরিবর্তিত থাকে; নতুন ফি আগের পেইডের চেয়ে কম হলে Due ঋণাত্মক দেখাতে পারে (UI কনফার্ম চায়)।
+- ফেজ G-র জন্য: ফেজ F-র নতুন টেবিলগুলোর RLS ও permission রিভিউ করুন; মেমো/রশিদ ডিজাইন (PNG পাওয়া গেছে) POS-প্রিন্টে যুক্ত করার সিদ্ধান্ত বাকি।
 
 ---
 
