@@ -1,19 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { supabase, Service, InventoryItem, POSSale, POSSaleItem, CreatePOSSaleResult, logActivity } from '../lib/supabase'
-import { ShoppingCart, Plus, Minus, Trash2, Printer, Receipt, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { supabase, Service, InventoryItem, POSSale, POSSaleItem, SalePayment } from '../lib/supabase'
+import { Plus, Printer, Receipt, Search } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { printReceipt } from '../lib/receipt'
-
-interface CartLine {
-  key: string
-  item_type: 'service' | 'inventory' | 'custom'
-  item_ref_id: string | null
-  item_name: string
-  quantity: number
-  unit_price: number
-  max_quantity?: number
-}
+import CartPanel from './pos/CartPanel'
+import QuickItems from './pos/QuickItems'
+import { CartLine, payMethodLabel } from './pos/posTypes'
 
 export default function POSTab() {
   const [services, setServices] = useState<Service[]>([])
@@ -25,12 +18,7 @@ export default function POSTab() {
   const [customName, setCustomName] = useState('')
   const [customPrice, setCustomPrice] = useState('')
 
-  const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [discountAmount, setDiscountAmount] = useState('0')
-  const [checkingOut, setCheckingOut] = useState(false)
-  const [error, setError] = useState('')
+  const [quickRefresh, setQuickRefresh] = useState(0)
 
   const [recentSales, setRecentSales] = useState<POSSale[]>([])
   const [recentLoading, setRecentLoading] = useState(false)
@@ -158,93 +146,45 @@ export default function POSTab() {
     setCart((prev) => prev.filter((l) => l.key !== key))
   }
 
-  const clearCart = () => {
-    setCart([])
-    setCustomerName('')
-    setCustomerPhone('')
-    setDiscountAmount('0')
-    setPaymentMethod('cash')
-    setError('')
+  const handleQuickAdd = (line: Omit<CartLine, 'quantity'>) => {
+    if (line.item_type === 'service') {
+      const svc = services.find((x) => x.id === line.item_ref_id)
+      if (svc) return addServiceToCart(svc)
+    }
+    if (line.item_type === 'inventory') {
+      const inv = inventoryItems.find((x) => x.id === line.item_ref_id)
+      if (inv) return addInventoryToCart(inv)
+      return
+    }
+    // কাস্টম আইটেম বা মুছে ফেলা সার্ভিস — আগের দামে যোগ
+    setCart((prev) => {
+      const existing = prev.find((l) => l.key === line.key)
+      if (existing) return prev.map((l) => (l.key === line.key ? { ...l, quantity: l.quantity + 1 } : l))
+      return [...prev, { ...line, item_type: 'custom', item_ref_id: null, quantity: 1 }]
+    })
   }
-
-  const subtotal = useMemo(() => cart.reduce((sum, l) => sum + l.quantity * l.unit_price, 0), [cart])
-  const total = Math.max(subtotal - Number(discountAmount || 0), 0)
 
   const filteredServices = services.filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()))
   const filteredInventory = inventoryItems.filter((i) => !search.trim() || i.name.toLowerCase().includes(search.toLowerCase()))
 
-  const handleCheckout = async () => {
-    setError('')
-    if (cart.length === 0) {
-      setError('কার্টে কোনো আইটেম নেই')
-      return
-    }
-    setCheckingOut(true)
-    try {
-      const payload = cart.map((l) => ({
-        item_type: l.item_type,
-        item_ref_id: l.item_ref_id || '',
-        item_name: l.item_name,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-      }))
-
-      const { data, error: rpcError } = await supabase.rpc('create_pos_sale', {
-        p_items: payload,
-        p_customer_name: customerName.trim() || null,
-        p_customer_phone: customerPhone.trim() || null,
-        p_payment_method: paymentMethod,
-        p_discount_amount: Number(discountAmount || 0),
-      })
-
-      if (rpcError) throw rpcError
-      const result = data as CreatePOSSaleResult
-      if (!result?.success) {
-        setError(result?.message || 'বিক্রয় সম্পন্ন করতে সমস্যা হয়েছে')
-        setCheckingOut(false)
-        return
-      }
-
-      logActivity(`POS বিক্রয় সম্পন্ন (${result.sale_number})`, 'pos_sale', result.sale_number, {
-        total_amount: result.total_amount,
-      })
-
-      // রশিদ প্রিন্টের জন্য সম্পূর্ণ সেল ও আইটেম আবার লোড করা
-      const { data: saleData } = await supabase.from('pos_sales').select('*').eq('id', result.sale_id).single()
-      const { data: saleItemsData } = await supabase.from('pos_sale_items').select('*').eq('sale_id', result.sale_id)
-
-      if (saleData) {
-        printReceipt(saleData as POSSale, (saleItemsData || []) as POSSaleItem[])
-      }
-
-      clearCart()
-      fetchCatalog()
-      fetchRecentSales()
-    } catch (err) {
-      console.error('চেকআউট ত্রুটি:', err)
-      setError('বিক্রয় সম্পন্ন করতে সমস্যা হয়েছে')
-    } finally {
-      setCheckingOut(false)
-    }
+  const handleCompleted = () => {
+    fetchCatalog()
+    fetchRecentSales()
+    setQuickRefresh((n) => n + 1)
   }
 
   const reprintSale = async (sale: POSSale) => {
     try {
-      const { data: saleItemsData, error: fetchError } = await supabase
-        .from('pos_sale_items')
-        .select('*')
-        .eq('sale_id', sale.id)
+      const [{ data: saleItemsData, error: fetchError }, { data: paysData }] = await Promise.all([
+        supabase.from('pos_sale_items').select('*').eq('sale_id', sale.id),
+        supabase.from('sale_payments').select('*').eq('sale_id', sale.id),
+      ])
       if (fetchError) throw fetchError
-      printReceipt(sale, (saleItemsData || []) as POSSaleItem[])
+      printReceipt(sale, (saleItemsData || []) as POSSaleItem[], (paysData || []) as SalePayment[])
     } catch (err) {
       console.error('রিপ্রিন্ট ত্রুটি:', err)
       alert('রশিদ পুনরায় প্রিন্ট করতে সমস্যা হয়েছে')
     }
-  }
-
-  const paymentLabel = (method: string) => {
-    const labels: Record<string, string> = { cash: 'নগদ', bkash: 'বিকাশ', nagad: 'নগদ (Nagad)', rocket: 'রকেট' }
-    return labels[method] || method
   }
 
   return (
@@ -262,6 +202,8 @@ export default function POSTab() {
               className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
+
+          <QuickItems refreshKey={quickRefresh} onAdd={handleQuickAdd} />
 
           {loading ? (
             <p className="text-center text-gray-500 py-8">লোড হচ্ছে...</p>
@@ -353,12 +295,18 @@ export default function POSTab() {
               {recentSales.map((sale) => (
                 <div key={sale.id} className="px-6 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold">{sale.sale_number}</p>
+                    <p className="text-sm font-semibold">{sale.invoice_no || sale.sale_number}</p>
                     <p className="text-xs text-gray-400">
-                      {paymentLabel(sale.payment_method)} • {formatDistanceToNow(new Date(sale.created_at), { locale: bn, addSuffix: true })}
+                      {sale.customer_name ? `${sale.customer_name} • ` : ''}
+                      {payMethodLabel(sale.payment_method)} • {formatDistanceToNow(new Date(sale.created_at), { locale: bn, addSuffix: true })}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {Number(sale.due_amount || 0) > 0 && (
+                      <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                        বাকি ৳{sale.due_amount}
+                      </span>
+                    )}
                     <p className="text-sm font-bold text-indigo-600">৳{sale.total_amount}</p>
                     <button
                       onClick={() => reprintSale(sale)}
@@ -375,108 +323,14 @@ export default function POSTab() {
         </div>
       </div>
 
-      {/* ডান দিক: কার্ট / চেকআউট */}
-      <div className="bg-white rounded-lg shadow p-6 h-fit lg:sticky lg:top-6">
-        <div className="flex items-center gap-2 mb-4">
-          <ShoppingCart className="text-indigo-600" size={20} />
-          <h3 className="font-bold">বিক্রয় কার্ট</h3>
-        </div>
-
-        {error && <div className="mb-4 bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2">{error}</div>}
-
-        {cart.length === 0 ? (
-          <p className="text-sm text-gray-400 py-6 text-center">কার্ট খালি — বাম দিক থেকে সেবা/পণ্য যোগ করুন</p>
-        ) : (
-          <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
-            {cart.map((line) => (
-              <div key={line.key} className="flex items-center justify-between gap-2 border-b border-gray-100 pb-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{line.item_name}</p>
-                  <p className="text-xs text-gray-400">৳{line.unit_price} × {line.quantity} = ৳{line.unit_price * line.quantity}</p>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => updateQuantity(line.key, -1)} className="p-1 border border-gray-300 rounded hover:bg-gray-50">
-                    <Minus size={12} />
-                  </button>
-                  <span className="text-sm w-5 text-center">{line.quantity}</span>
-                  <button onClick={() => updateQuantity(line.key, 1)} className="p-1 border border-gray-300 rounded hover:bg-gray-50">
-                    <Plus size={12} />
-                  </button>
-                  <button onClick={() => removeLine(line.key)} className="p-1 text-red-500 hover:bg-red-50 rounded ml-1">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="space-y-3 border-t border-gray-200 pt-4">
-          <input
-            type="text"
-            placeholder="কাস্টমারের নাম (ঐচ্ছিক)"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-          />
-          <input
-            type="text"
-            placeholder="ফোন নম্বর (ঐচ্ছিক)"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-          />
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            <option value="cash">নগদ (ক্যাশ)</option>
-            <option value="bkash">বিকাশ</option>
-            <option value="nagad">নগদ (Nagad)</option>
-            <option value="rocket">রকেট</option>
-          </select>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 whitespace-nowrap">ছাড় (৳)</label>
-            <input
-              type="number"
-              min={0}
-              value={discountAmount}
-              onChange={(e) => setDiscountAmount(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-
-          <div className="border-t border-gray-200 pt-3 space-y-1">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>সাবটোটাল</span>
-              <span>৳{subtotal}</span>
-            </div>
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>ছাড়</span>
-              <span>৳{Number(discountAmount || 0)}</span>
-            </div>
-            <div className="flex justify-between text-lg font-bold text-gray-900">
-              <span>সর্বমোট</span>
-              <span>৳{total}</span>
-            </div>
-          </div>
-
-          <button
-            onClick={handleCheckout}
-            disabled={checkingOut || cart.length === 0}
-            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
-          >
-            {checkingOut ? 'প্রসেস হচ্ছে...' : 'বিক্রয় সম্পন্ন করুন ও রশিদ প্রিন্ট করুন'}
-          </button>
-          <button
-            onClick={clearCart}
-            className="w-full border border-gray-300 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition"
-          >
-            কার্ট খালি করুন
-          </button>
-        </div>
-      </div>
+      {/* ডান দিক: কার্ট / কাস্টমার / পেমেন্ট */}
+      <CartPanel
+        cart={cart}
+        onQty={updateQuantity}
+        onRemove={removeLine}
+        onClear={() => setCart([])}
+        onCompleted={handleCompleted}
+      />
     </div>
   )
 }

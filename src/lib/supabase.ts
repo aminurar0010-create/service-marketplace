@@ -379,6 +379,20 @@ export interface POSSale {
   status: 'completed' | 'refunded'
   created_by?: string | null
   created_at: string
+  // ফেজ B
+  shop_customer_id?: string | null
+  invoice_no?: string | null
+  paid_amount?: number | null
+  due_amount?: number | null
+}
+
+export interface SalePayment {
+  id: string
+  sale_id: string
+  method: 'cash' | 'bkash' | 'nagad' | 'rocket' | 'other'
+  amount: number
+  kind: 'sale' | 'due_collection'
+  created_at: string
 }
 
 export interface POSSaleItem {
@@ -397,7 +411,10 @@ export interface CreatePOSSaleResult {
   message?: string
   sale_id?: string
   sale_number?: string
+  invoice_no?: string
   total_amount?: number
+  paid_amount?: number
+  due_amount?: number
 }
 
 export interface ActivityLog {
