@@ -558,3 +558,48 @@ export const CUSTOMER_TYPE_LABELS: Record<ShopCustomerType, string> = {
   student: 'স্টুডেন্ট',
   business: 'ব্যবসায়িক',
 }
+
+// ===== ফেজ C — Business Accounting =====
+export interface CustomerDue {
+  customer_id: string
+  customer_code: string
+  name: string
+  phone: string
+  total_due: number
+  due_sales_count: number
+  oldest_due_at: string
+  last_collection_at: string | null
+}
+
+export interface DueCollectionRow {
+  id: string
+  method: string
+  amount: number
+  created_at: string
+  pos_sales: { invoice_no: string | null; customer_name: string | null; customer_phone: string | null } | null
+}
+
+export interface DaySummary {
+  success: boolean
+  message?: string
+  close_date: string
+  sales_total: number
+  new_due: number
+  income_total: number
+  expense_total: number
+  net_result: number
+  by_method: Record<string, { income: number; expense: number; net: number }>
+}
+
+export interface DailyClosing {
+  id: string
+  close_date: string
+  sales_total: number
+  new_due: number
+  income_total: number
+  expense_total: number
+  net_result: number
+  by_method: Record<string, { income: number; expense: number; net: number }>
+  note: string | null
+  created_at: string
+}

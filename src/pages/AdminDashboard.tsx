@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import TodayDashboard from '../admin/TodayDashboard'
@@ -18,6 +18,7 @@ import MessagesTab from '../admin/MessagesTab'
 import GalleryTab from '../admin/GalleryTab'
 import ReviewsTab from '../admin/ReviewsTab'
 import CashBookTab from '../admin/CashBookTab'
+import DueCollectionTab from '../admin/DueCollectionTab'
 import ReportsTab from '../admin/ReportsTab'
 import SettingsTab from '../admin/SettingsTab'
 import InventoryTab from '../admin/InventoryTab'
@@ -36,7 +37,7 @@ import LeadsTab from '../admin/LeadsTab'
 import CoursesTab from '../admin/CoursesTab'
 import EnrollmentsTab from '../admin/EnrollmentsTab'
 
-type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'leads' | 'templates' | 'courses' | 'enrollments'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments'
 
 interface NavItem {
   id: Tab
@@ -695,6 +696,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
     { id: 'reports', label: 'রিপোর্টস', icon: PieChart },
     { id: 'inventory', label: 'ইনভেন্টরি', icon: Boxes },
     { id: 'pos', label: 'POS', icon: ShoppingCart },
+    { id: 'due_collection', label: 'বাকি আদায়', icon: Banknote },
     { id: 'users', label: 'ইউজার ম্যানেজমেন্ট', icon: UserCog },
     { id: 'customer_ledger', label: 'কাস্টমার খাতা', icon: BookUser },
     { id: 'website', label: 'ওয়েবসাইট ম্যানেজমেন্ট', icon: Globe },
@@ -869,6 +871,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'inventory' && <InventoryTab />}
           {activeTab === 'pos' && <POSTab />}
+          {activeTab === 'due_collection' && <DueCollectionTab />}
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'customer_ledger' && <CustomerLedgerTab />}
           {activeTab === 'website' && <WebsiteTab />}
