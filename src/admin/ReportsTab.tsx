@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { Order, Service } from '../lib/supabase'
 import DailyReport from './reports/DailyReport'
 import ServiceReport from './reports/ServiceReport'
+import CustomerStaffReport from './reports/CustomerStaffReport'
 import LegacyOverview from './reports/LegacyOverview'
 
-type ReportView = 'daily' | 'service' | 'overview'
+type ReportView = 'daily' | 'service' | 'customer' | 'overview'
 
 const VIEWS: { id: ReportView; label: string }[] = [
   { id: 'daily', label: 'দৈনিক রিপোর্ট' },
   { id: 'service', label: 'সার্ভিস-ভিত্তিক' },
+  { id: 'customer', label: 'কাস্টমার ও স্টাফ' },
   { id: 'overview', label: 'অর্ডার ওভারভিউ' },
 ]
 
@@ -37,6 +39,7 @@ export default function ReportsTab({ services, orders }: { services: Service[]; 
         </div>
       )}
       {view === 'service' && <ServiceReport services={services} orders={orders} />}
+      {view === 'customer' && <CustomerStaffReport />}
       {view === 'overview' && <LegacyOverview services={services} orders={orders} />}
     </div>
   )
