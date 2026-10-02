@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, StudentOverview } from '../../lib/supabase'
 import StudentsPanel from './StudentsPanel'
 import AttendancePanel from './AttendancePanel'
+import FeesPanel from './FeesPanel'
 
-type View = 'students' | 'attendance'
+type View = 'students' | 'attendance' | 'fees'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'students', label: 'স্টুডেন্ট তালিকা' },
   { id: 'attendance', label: 'হাজিরা' },
+  { id: 'fees', label: 'ফি ও Due' },
 ]
 
 /** Training Management — স্টুডেন্ট, হাজিরা, ফি/Due, সার্টিফিকেট */
@@ -49,6 +51,7 @@ export default function TrainingTab() {
       <div className="bg-white rounded-lg shadow p-6">
         {view === 'students' && <StudentsPanel students={students} reload={load} loading={loading} />}
         {view === 'attendance' && <AttendancePanel students={students} reload={load} />}
+        {view === 'fees' && <FeesPanel students={students} reload={load} />}
       </div>
     </div>
   )
