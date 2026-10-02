@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://service-marketplace-jade.vercel.app/sitemap.xml
