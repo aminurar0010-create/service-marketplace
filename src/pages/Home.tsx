@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import Hero from './home/Hero'
 import TrustBadges from '../components/TrustBadges'
 import About from './home/About'
+import Divisions from './home/Divisions'
 import DigitalServices from './home/DigitalServices'
 import Portfolio from './home/Portfolio'
 import WhyChooseUs from './home/WhyChooseUs'
@@ -14,8 +15,8 @@ import { useSEO } from '../lib/useSEO'
 
 export default function Home() {
   useSEO(
-    'নিউ প্রিন্টার্স — সরকারি কাগজপত্র, প্রিন্টিং ও ডিজিটাল সেবা',
-    'সুন্দলপুর বাজার, মনিরামপুর, যশোর — পাসপোর্ট, জন্ম সনদ, ড্রাইভিং লাইসেন্স থেকে ওয়েবসাইট তৈরি, সব সেবা এক ঠিকানায়।'
+    'নিউ প্রিন্টার্স — ডিজিটাল সেবা, প্রিন্টিং, আইটি সমাধান ও প্রশিক্ষণ',
+    'সুন্দলপুর বাজার, মনিরামপুর, যশোর — ডিজিটাল সেবা, প্রিন্টিং, আইটি সমাধান ও প্রশিক্ষণ, সবকিছু এক ঠিকানায়।'
   )
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +56,7 @@ export default function Home() {
     <div className="min-h-screen bg-paper">
       <Hero />
       <TrustBadges />
+      <Divisions />
       <About />
       <DigitalServices />
 

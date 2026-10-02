@@ -55,16 +55,16 @@ export default function Hero() {
               একটি ঠিকানায়
             </span>
             <br className="hidden md:block" />
-            <span className="text-white">সরকারি কাগজপত্র,</span>
+            <span className="text-white">ডিজিটাল সেবা, প্রিন্টিং,</span>
             <br className="hidden md:block" />
             <span className="bg-gradient-to-r from-blue-300 via-cyan-300 to-blue-400 bg-clip-text text-transparent">
-              প্রিন্টিং ও ডিজিটাল সেবা
+              আইটি সমাধান ও প্রশিক্ষণ
             </span>
           </h1>
 
           {/* ডেস্ক্রিপশন */}
           <p className="text-lg md:text-xl text-slate-200 mb-8 max-w-2xl mx-auto md:mx-0 leading-relaxed animate-fade-in">
-            পাসপোর্ট আবেদন থেকে ওয়েবসাইট তৈরি — মনিরামপুরে বসেই সুদক্ষ কারিগরের হাতে সব কাজ। 
+            পাসপোর্ট আবেদন থেকে ওয়েবসাইট তৈরি, প্রিন্টিং থেকে কম্পিউটার প্রশিক্ষণ — মনিরামপুরে বসেই সব কাজ। 
             <span className="block text-amber-300 mt-2 font-semibold">দ্রুত • বিশ্বস্ত • সাশ্রয়ী</span>
           </p>
 
