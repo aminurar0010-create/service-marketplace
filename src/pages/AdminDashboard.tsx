@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck, ShieldCheck
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck, ShieldCheck, Calculator
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import TodayDashboard from '../admin/TodayDashboard'
@@ -23,6 +23,7 @@ import GlobalSearch from '../admin/GlobalSearch'
 import { canViewTab } from '../lib/permissions'
 import TrainingTab from '../admin/training/TrainingTab'
 import ActivityTab from '../admin/ActivityTab'
+import QuotesTab from '../admin/pricing/QuotesTab'
 import CustomerProfileModal from '../admin/CustomerProfileModal'
 import OrderDetailModal from '../admin/OrderDetailModal'
 import ReportsTab from '../admin/ReportsTab'
@@ -43,7 +44,7 @@ import LeadsTab from '../admin/LeadsTab'
 import CoursesTab from '../admin/CoursesTab'
 import EnrollmentsTab from '../admin/EnrollmentsTab'
 
-type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training' | 'activity'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training' | 'activity' | 'quotes'
 
 interface NavItem {
   id: Tab
@@ -704,6 +705,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
     { id: 'reports', label: 'রিপোর্টস', icon: PieChart },
     { id: 'inventory', label: 'ইনভেন্টরি', icon: Boxes },
     { id: 'pos', label: 'POS', icon: ShoppingCart },
+    { id: 'quotes', label: 'প্রাইস ও কোটেশন', icon: Calculator },
     { id: 'due_collection', label: 'বাকি আদায়', icon: Banknote },
     { id: 'users', label: 'ইউজার ম্যানেজমেন্ট', icon: UserCog },
     { id: 'customer_ledger', label: 'কাস্টমার খাতা', icon: BookUser },
@@ -890,6 +892,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'inventory' && <InventoryTab />}
           {activeTab === 'pos' && <POSTab />}
+          {activeTab === 'quotes' && <QuotesTab role={role} onGo={(t) => setActiveTab(t as Tab)} />}
           {activeTab === 'due_collection' && <DueCollectionTab />}
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'customer_ledger' && <CustomerLedgerTab />}

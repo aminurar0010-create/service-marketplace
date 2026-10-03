@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, logActivity, Service, InventoryItem, POSSale, POSSaleItem, SalePayment } from '../lib/supabase'
+import { supabase, logActivity, ShopCustomer, Service, InventoryItem, POSSale, POSSaleItem, SalePayment } from '../lib/supabase'
 import { Plus, Printer, Receipt, Search, FileText, Undo2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
@@ -8,6 +8,7 @@ import { printMemo } from '../lib/memo'
 import CartPanel from './pos/CartPanel'
 import QuickItems from './pos/QuickItems'
 import { CartLine, payMethodLabel } from './pos/posTypes'
+import { PENDING_QUOTE_KEY } from './pricing/QuotesTab'
 
 export default function POSTab() {
   const [services, setServices] = useState<Service[]>([])
@@ -15,6 +16,29 @@ export default function POSTab() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
+  // কোটেশন থেকে "বিক্রি করুন" চাপলে আসা তথ্য (একবারই নেওয়া হয়)
+  const [preset, setPreset] = useState<{ quoteId: string; quoteNo: string; discount: number; customer: ShopCustomer | null } | null>(null)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_QUOTE_KEY)
+      if (!raw) return
+      localStorage.removeItem(PENDING_QUOTE_KEY)
+      const q = JSON.parse(raw)
+      setCart(
+        (q.lines || []).map((l: { name: string; quantity: number; unit_price: number }) => ({
+          key: `custom:${crypto.randomUUID()}`,
+          item_type: 'custom' as const,
+          item_ref_id: null,
+          item_name: l.name,
+          quantity: 1,
+          unit_price: Math.round(Number(l.quantity) * Number(l.unit_price) * 100) / 100,
+        }))
+      )
+      setPreset({ quoteId: q.quoteId, quoteNo: q.quoteNo, discount: Number(q.discount) || 0, customer: q.customer || null })
+    } catch (e) {
+      console.error('কোটেশন লোড ত্রুটি:', e)
+    }
+  }, [])
 
   const [customName, setCustomName] = useState('')
   const [customPrice, setCustomPrice] = useState('')
@@ -373,7 +397,11 @@ export default function POSTab() {
         cart={cart}
         onQty={updateQuantity}
         onRemove={removeLine}
-        onClear={() => setCart([])}
+        onClear={() => {
+          setCart([])
+          setPreset(null)
+        }}
+        preset={preset}
         onCompleted={handleCompleted}
       />
     </div>

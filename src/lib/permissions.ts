@@ -18,6 +18,7 @@ export const TAB_ACCESS: Record<string, DashboardRole[]> = {
   orders: ALL,
   customer_ledger: ALL,
   cashbook: ALL,
+  quotes: ALL,
   // নিচেরগুলো ইচ্ছাকৃতভাবে শুধু অ্যাডমিন (স্পষ্টতার জন্য লেখা)
   services: ADMIN, staff: ADMIN, coupons: ADMIN, performance: ADMIN, messages: ADMIN, gallery: ADMIN,
   reviews: ADMIN, reports: ADMIN, inventory: ADMIN, pos: ADMIN, due_collection: ADMIN, users: ADMIN,
@@ -29,6 +30,8 @@ export const TAB_ACCESS: Record<string, DashboardRole[]> = {
 export const ACTION_ACCESS: Record<string, DashboardRole[]> = {
   'cashbook.add': ALL,
   'cashbook.delete': ADMIN,
+  'pricing.edit': ADMIN,
+  'quote.sell': ADMIN,
   'activitylog.view': ADMIN,
 }
 

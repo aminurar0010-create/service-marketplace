@@ -20,18 +20,27 @@ interface Props {
   onRemove: (key: string) => void
   onClear: () => void
   onCompleted: () => void
+  /** কোটেশন থেকে এলে: কাস্টমার, ছাড় ও কোটেশন আইডি আগে থেকে বসানো */
+  preset?: { quoteId: string; quoteNo: string; discount: number; customer: ShopCustomer | null } | null
 }
 
 type PayState = Record<PayMethod, string>
 const EMPTY_PAY: PayState = { cash: '', bkash: '', nagad: '', rocket: '', other: '' }
 
 /** কার্ট + কাস্টমার + পেমেন্ট (আংশিক/বাকি সহ) + চেকআউট */
-export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted }: Props) {
+export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted, preset }: Props) {
   const [customer, setCustomer] = useState<ShopCustomer | null>(null)
   const [discount, setDiscount] = useState('0')
   const [pay, setPay] = useState<PayState>(EMPTY_PAY)
   const [touched, setTouched] = useState(false) // কাস্টমার নিজে পেমেন্ট বদলালে true
   const [checkingOut, setCheckingOut] = useState(false)
+
+  useEffect(() => {
+    if (!preset) return
+    if (preset.customer) setCustomer(preset.customer)
+    setDiscount(String(preset.discount || 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset?.quoteId])
   const [error, setError] = useState('')
   // রশিদের ধরন (এই ডিভাইসে মনে রাখা হয়): ছোট স্লিপ নাকি A5 মেমো
   const [format, setFormat] = useState<'slip' | 'a5'>(() => {
@@ -119,6 +128,11 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted 
       if (!result?.success) {
         setError(result?.message || 'বিক্রয় সম্পন্ন করতে সমস্যা হয়েছে')
         return
+      }
+
+      if (preset?.quoteId) {
+        const { error: linkErr } = await supabase.rpc('link_quote_sale', { p_quote_id: preset.quoteId, p_sale_id: result.sale_id })
+        if (linkErr) console.error('কোটেশন-বিক্রি সংযোগ ত্রুটি:', linkErr)
       }
 
       logActivity(`POS বিক্রয় সম্পন্ন (${result.invoice_no})`, 'pos_sale', result.invoice_no, {

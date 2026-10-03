@@ -7,12 +7,12 @@ import HealthCheck from './HealthCheck'
 import { rangeDates, rangeIso, RangeKey, RANGE_LABELS, fetchAll, downloadCsv } from './reports/reportUtils'
 
 const TAB_LABELS: Record<string, string> = {
-  today: 'আজকের কাজ', orders: 'অর্ডার', customer_ledger: 'কাস্টমার খাতা', cashbook: 'ক্যাশ-বুক',
+  today: 'আজকের কাজ', orders: 'অর্ডার', customer_ledger: 'কাস্টমার খাতা', cashbook: 'ক্যাশ-বুক', quotes: 'প্রাইস ও কোটেশন',
   pos: 'POS', due_collection: 'বাকি আদায়', reports: 'রিপোর্টস', inventory: 'ইনভেন্টরি', training: 'Students & Training',
   enrollments: 'Student Enrollments', courses: 'Courses', services: 'সার্ভিস', users: 'ইউজার', settings: 'সেটিংস', activity: 'লগ ও নিরাপত্তা',
 }
 const ACTION_LABELS: Record<string, string> = {
-  'cashbook.add': 'ক্যাশ-বুকে নতুন এন্ট্রি', 'cashbook.delete': 'ক্যাশ-বুকের এন্ট্রি মোছা', 'activitylog.view': 'অ্যাক্টিভিটি লগ দেখা',
+  'cashbook.add': 'ক্যাশ-বুকে নতুন এন্ট্রি', 'cashbook.delete': 'ক্যাশ-বুকের এন্ট্রি মোছা', 'pricing.edit': 'রেট বদলানো', 'quote.sell': 'কোটেশন থেকে বিক্রি', 'activitylog.view': 'অ্যাক্টিভিটি লগ দেখা',
 }
 const ROLE_LABELS: Record<string, string> = { admin: 'অ্যাডমিন', counter_operator: 'কাউন্টার অপারেটর' }
 
