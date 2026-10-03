@@ -135,7 +135,7 @@ export default function StudentsPanel({ students, reload, loading }: { students:
 
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-3">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 space-y-3">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-bold">{editing.full_name}</h3>
