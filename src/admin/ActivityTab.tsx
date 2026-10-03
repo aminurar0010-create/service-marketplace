@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { Download, LogIn, RefreshCw } from 'lucide-react'
 import { supabase, ActivityLog } from '../lib/supabase'
 import { TAB_ACCESS, ACTION_ACCESS } from '../lib/permissions'
+import HealthCheck from './HealthCheck'
 import { rangeDates, rangeIso, RangeKey, RANGE_LABELS, fetchAll, downloadCsv } from './reports/reportUtils'
 
 const TAB_LABELS: Record<string, string> = {
@@ -142,6 +143,8 @@ export default function ActivityTab() {
         )}
         <p className="text-xs text-gray-400">* {from} থেকে {to}। লগ বন্ধ করা বা মুছে ফেলা শুধু অ্যাডমিন (সেটিংস → অ্যাক্টিভিটি লগ) পারেন।</p>
       </div>
+
+      <HealthCheck />
 
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="font-bold mb-1">Permission ম্যাট্রিক্স (কে কী করতে পারে)</h3>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { supabase, Service, InventoryItem, POSSale, POSSaleItem, SalePayment } from '../lib/supabase'
-import { Plus, Printer, Receipt, Search } from 'lucide-react'
+import { supabase, logActivity, Service, InventoryItem, POSSale, POSSaleItem, SalePayment } from '../lib/supabase'
+import { Plus, Printer, Receipt, Search, FileText, Undo2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { printReceipt } from '../lib/receipt'
+import { printMemo } from '../lib/memo'
 import CartPanel from './pos/CartPanel'
 import QuickItems from './pos/QuickItems'
 import { CartLine, payMethodLabel } from './pos/posTypes'
@@ -173,18 +174,43 @@ export default function POSTab() {
     setQuickRefresh((n) => n + 1)
   }
 
-  const reprintSale = async (sale: POSSale) => {
+  const reprintSale = async (sale: POSSale, fmt: 'slip' | 'a5' = 'slip') => {
     try {
       const [{ data: saleItemsData, error: fetchError }, { data: paysData }] = await Promise.all([
         supabase.from('pos_sale_items').select('*').eq('sale_id', sale.id),
         supabase.from('sale_payments').select('*').eq('sale_id', sale.id),
       ])
       if (fetchError) throw fetchError
-      printReceipt(sale, (saleItemsData || []) as POSSaleItem[], (paysData || []) as SalePayment[])
+      if (fmt === 'a5') {
+        let address = ''
+        if (sale.shop_customer_id) {
+          const { data: c } = await supabase.from('shop_customers').select('address').eq('id', sale.shop_customer_id).maybeSingle()
+          address = c?.address || ''
+        }
+        printMemo(sale, (saleItemsData || []) as POSSaleItem[], (paysData || []) as SalePayment[], address)
+      } else {
+        printReceipt(sale, (saleItemsData || []) as POSSaleItem[], (paysData || []) as SalePayment[])
+      }
     } catch (err) {
       console.error('রিপ্রিন্ট ত্রুটি:', err)
       alert('রশিদ পুনরায় প্রিন্ট করতে সমস্যা হয়েছে')
     }
+  }
+
+  const refundSale = async (sale: POSSale) => {
+    const inv = sale.invoice_no || sale.sale_number
+    if (!window.confirm(`${inv} ফেরত দেবেন?\n• স্টক ফেরত যাবে\n• যত টাকা নেওয়া হয়েছিল ক্যাশ-বুকে ফেরত-ব্যয় হবে\n• এর বকেয়া (যদি থাকে) বাদ যাবে\nএটা পূর্বাবস্থায় ফেরানো যায় না।`)) return
+    const reason = window.prompt('ফেরতের কারণ (ঐচ্ছিক):') ?? ''
+    const { data, error: rpcError } = await supabase.rpc('refund_pos_sale', { p_sale_id: sale.id, p_reason: reason })
+    if (rpcError || !data?.success) {
+      alert(data?.message || 'ফেরত দেওয়া যায়নি (ফেজ H-এর SQL রান করা আছে কি?)')
+      if (rpcError) console.error('POS ফেরত ত্রুটি:', rpcError)
+      return
+    }
+    logActivity(`POS বিক্রয় ফেরত (${inv})`, 'pos_sale', inv, { refunded: data.refunded, reason })
+    fetchRecentSales()
+    fetchCatalog()
+    setQuickRefresh((n) => n + 1)
   }
 
   return (
@@ -307,14 +333,33 @@ export default function POSTab() {
                         বাকি ৳{sale.due_amount}
                       </span>
                     )}
-                    <p className="text-sm font-bold text-indigo-600">৳{sale.total_amount}</p>
+                    {sale.status === 'refunded' && (
+                      <span className="text-xs font-semibold text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">ফেরত</span>
+                    )}
+                    <p className={`text-sm font-bold ${sale.status === 'refunded' ? 'text-gray-400 line-through' : 'text-indigo-600'}`}>৳{sale.total_amount}</p>
                     <button
                       onClick={() => reprintSale(sale)}
                       className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition"
-                      title="রশিদ প্রিন্ট"
+                      title="ছোট স্লিপ প্রিন্ট"
                     >
                       <Printer size={16} />
                     </button>
+                    <button
+                      onClick={() => reprintSale(sale, 'a5')}
+                      className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition"
+                      title="A5 মেমো প্রিন্ট"
+                    >
+                      <FileText size={16} />
+                    </button>
+                    {sale.status === 'completed' && (
+                      <button
+                        onClick={() => refundSale(sale)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
+                        title="ফেরত দিন (অ্যাডমিন)"
+                      >
+                        <Undo2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

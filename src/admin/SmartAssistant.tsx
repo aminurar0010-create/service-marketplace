@@ -1,17 +1,21 @@
 import { useState } from 'react'
-import { Sparkles, Search } from 'lucide-react'
+import { Sparkles, Search, Loader2 } from 'lucide-react'
+import { parseIntent, runIntent } from '../lib/assistantIntents'
 
 // ============================================================
 // স্মার্ট প্রশ্ন বক্স — সম্পূর্ণ ফ্রি, কোনো বাইরের AI API ছাড়াই।
-// এটা "real" AI না — নির্দিষ্ট কিছু চেনা প্রশ্নের প্যাটার্ন ধরে সাইটের
-// ইতিমধ্যে লোড হওয়া ডেটা (অর্ডার/সার্ভিস) থেকে হিসাব করে উত্তর দেখায়।
+// এটা "real" AI না — চেনা প্রশ্নের প্যাটার্ন ধরে উত্তর দেয়:
+//  • বিক্রি/বকেয়া/স্টক/কাস্টমার-খরচ → নিরাপদ read-only RPC (src/lib/assistantIntents.ts)
+//  • অর্ডার/ডেডলাইন ধরনের প্রশ্ন → ইতিমধ্যে লোড হওয়া অর্ডার থেকে (নিচের নিয়মগুলো)
+// প্রশ্ন লিখে Enter চাপুন (প্রতি অক্ষরে ডাটাবেস ডাকা হয় না)।
 // ============================================================
 
 const SUGGESTIONS = [
+  'আজকে কত বিক্রি',
+  'এই মাসে সেরা সার্ভিস',
+  'আজকের বকেয়া কাস্টমার',
+  'Low Stock পণ্য',
   'আজ কী কাজ আছে',
-  'পেন্ডিং কাজ কী কী',
-  'আজকের আয় কত',
-  'এই মাসে কোন সার্ভিস বেশি লাভ করেছে',
   'কোন অর্ডারে ডকুমেন্ট বাকি',
 ]
 
@@ -25,6 +29,7 @@ export default function SmartAssistant({ ctx }: { ctx: any }) {
   const [query, setQuery] = useState('')
   const [answer, setAnswer] = useState<Answer | null>(null)
   const [notUnderstood, setNotUnderstood] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const activeOrders = () =>
     orders.filter((o: any) => !['completed', 'cancelled', 'delivered', 'rejected'].includes(o.status))
@@ -37,12 +42,21 @@ export default function SmartAssistant({ ctx }: { ctx: any }) {
     })
   }
 
-  const handleAsk = (raw: string) => {
+  const handleAsk = async (raw: string) => {
     const q = raw.trim()
-    setQuery(q)
+    setQuery(raw)
     setNotUnderstood(false)
     if (!q) {
       setAnswer(null)
+      return
+    }
+
+    // ডাটা-প্রশ্ন (বিক্রি, বকেয়া, স্টক, সেরা সার্ভিস, কাস্টমারের খরচ) → নিরাপদ RPC
+    const intent = parseIntent(q)
+    if (intent) {
+      setLoading(true)
+      setAnswer(await runIntent(intent))
+      setLoading(false)
       return
     }
 
@@ -164,12 +178,23 @@ export default function SmartAssistant({ ctx }: { ctx: any }) {
       </p>
 
       <div className="relative mb-3">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        {loading ? (
+          <Loader2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 animate-spin" />
+        ) : (
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        )}
         <input
           type="text"
           value={query}
-          onChange={(e) => handleAsk(e.target.value)}
-          placeholder='যেমনঃ "আজ কী কাজ আছে" বা "রহিমের অর্ডার"'
+          onChange={(e) => {
+            setQuery(e.target.value)
+            if (!e.target.value.trim()) {
+              setAnswer(null)
+              setNotUnderstood(false)
+            }
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && handleAsk(query)}
+          placeholder='যেমনঃ "আজকে কত বিক্রি" বা "রহিম গত ৩ মাসে কত খরচ করেছে" — লিখে Enter চাপুন'
           className="w-full border border-indigo-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 bg-white"
         />
       </div>
