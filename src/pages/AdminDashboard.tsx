@@ -5,7 +5,7 @@ import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck, ShieldCheck
 } from 'lucide-react'
 import OrdersTab from '../admin/OrdersTab'
 import TodayDashboard from '../admin/TodayDashboard'
@@ -22,6 +22,7 @@ import DueCollectionTab from '../admin/DueCollectionTab'
 import GlobalSearch from '../admin/GlobalSearch'
 import { canViewTab } from '../lib/permissions'
 import TrainingTab from '../admin/training/TrainingTab'
+import ActivityTab from '../admin/ActivityTab'
 import CustomerProfileModal from '../admin/CustomerProfileModal'
 import OrderDetailModal from '../admin/OrderDetailModal'
 import ReportsTab from '../admin/ReportsTab'
@@ -42,7 +43,7 @@ import LeadsTab from '../admin/LeadsTab'
 import CoursesTab from '../admin/CoursesTab'
 import EnrollmentsTab from '../admin/EnrollmentsTab'
 
-type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training'
+type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training' | 'activity'
 
 interface NavItem {
   id: Tab
@@ -715,6 +716,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
     { id: 'courses', label: 'Training Courses', icon: GraduationCap },
     { id: 'enrollments', label: 'Student Enrollments', icon: BookUser },
     { id: 'training', label: 'Students & Training', icon: ClipboardCheck },
+    { id: 'activity', label: 'লগ ও নিরাপত্তা', icon: ShieldCheck },
     { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
   ]
 
@@ -900,6 +902,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'courses' && <CoursesTab />}
           {activeTab === 'enrollments' && <EnrollmentsTab />}
           {activeTab === 'training' && <TrainingTab />}
+          {activeTab === 'activity' && <ActivityTab />}
         </div>
       </main>
 

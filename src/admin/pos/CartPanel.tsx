@@ -10,6 +10,7 @@ import {
   CreatePOSSaleResult,
 } from '../../lib/supabase'
 import { printReceipt } from '../../lib/receipt'
+import { printMemo } from '../../lib/memo'
 import CustomerPicker from '../../components/CustomerPicker'
 import { CartLine, PAY_METHODS, PayMethod } from './posTypes'
 
@@ -32,6 +33,22 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted 
   const [touched, setTouched] = useState(false) // কাস্টমার নিজে পেমেন্ট বদলালে true
   const [checkingOut, setCheckingOut] = useState(false)
   const [error, setError] = useState('')
+  // রশিদের ধরন (এই ডিভাইসে মনে রাখা হয়): ছোট স্লিপ নাকি A5 মেমো
+  const [format, setFormat] = useState<'slip' | 'a5'>(() => {
+    try {
+      return localStorage.getItem('np_receipt_format') === 'a5' ? 'a5' : 'slip'
+    } catch {
+      return 'slip'
+    }
+  })
+  const chooseFormat = (f: 'slip' | 'a5') => {
+    setFormat(f)
+    try {
+      localStorage.setItem('np_receipt_format', f)
+    } catch {
+      /* ব্রাউজার স্টোরেজ বন্ধ থাকলে শুধু এই সেশনে থাকবে */
+    }
+  }
 
   const subtotal = useMemo(() => cart.reduce((s, l) => s + l.quantity * l.unit_price, 0), [cart])
   const discountNum = Math.max(Number(discount || 0), 0)
@@ -115,7 +132,11 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted 
         supabase.from('pos_sale_items').select('*').eq('sale_id', result.sale_id),
         supabase.from('sale_payments').select('*').eq('sale_id', result.sale_id),
       ])
-      if (sale) printReceipt(sale as POSSale, (items || []) as POSSaleItem[], (pays || []) as SalePayment[])
+      if (sale) {
+        const args = [sale as POSSale, (items || []) as POSSaleItem[], (pays || []) as SalePayment[]] as const
+        if (format === 'a5') printMemo(args[0], args[1], args[2], customer?.address || '')
+        else printReceipt(...args)
+      }
 
       reset()
       onClear()
@@ -239,6 +260,19 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted 
             <span>{overpaid ? 'বেশি দেওয়া হয়েছে' : 'বাকি (Due)'}</span>
             <span>৳{Math.abs(due)}</span>
           </div>
+        </div>
+
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+          {([['slip', 'ছোট স্লিপ'], ['a5', 'A5 মেমো']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => chooseFormat(id)}
+              className={`flex-1 py-1.5 font-semibold transition ${format === id ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <button

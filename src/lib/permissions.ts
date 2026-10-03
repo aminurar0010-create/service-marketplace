@@ -22,7 +22,7 @@ export const TAB_ACCESS: Record<string, DashboardRole[]> = {
   services: ADMIN, staff: ADMIN, coupons: ADMIN, performance: ADMIN, messages: ADMIN, gallery: ADMIN,
   reviews: ADMIN, reports: ADMIN, inventory: ADMIN, pos: ADMIN, due_collection: ADMIN, users: ADMIN,
   website: ADMIN, blog: ADMIN, prompts: ADMIN, leads: ADMIN, templates: ADMIN, portfolio: ADMIN,
-  courses: ADMIN, enrollments: ADMIN, training: ADMIN, settings: ADMIN,
+  courses: ADMIN, enrollments: ADMIN, training: ADMIN, settings: ADMIN, activity: ADMIN,
 }
 
 /** অ্যাকশন → কে করতে পারবে */
