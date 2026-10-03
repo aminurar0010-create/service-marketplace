@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Zap } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, ShopCustomer } from '../lib/supabase'
+import CustomerPicker from '../components/CustomerPicker'
 
 // দোকানে কাস্টমার সরাসরি এলে দ্রুত অর্ডার তৈরি করার জন্য — যত কম ঘর পূরণ করতে হয় তত ভালো
 export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: () => void }) {
@@ -11,6 +12,7 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
   const [customServiceName, setCustomServiceName] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
+  const [pickedCustomer, setPickedCustomer] = useState<ShopCustomer | null>(null)
   const [price, setPrice] = useState<number | ''>('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentReceived, setPaymentReceived] = useState(false)
@@ -27,6 +29,13 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
     setServiceId(id)
     const svc = services.find((s: any) => s.id === id)
     if (svc) setPrice(svc.price)
+  }
+
+  // রিপিট কাস্টমার বাছলে নাম ও মোবাইল নিজে থেকে বসে; বাদ দিলে ঘর দুটো খালি হয়
+  const handlePickCustomer = (c: ShopCustomer | null) => {
+    setPickedCustomer(c)
+    setCustomerName(c ? c.name : '')
+    setCustomerPhone(c ? c.phone : '')
   }
 
   const handleSubmit = async () => {
@@ -201,6 +210,12 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
               />
               <span className="text-xs text-gray-600">কাস্টম সার্ভিস (তালিকায় নেই)</span>
             </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">রিপিট কাস্টমার? ফোন বা নাম দিয়ে খুঁজুন</label>
+            <CustomerPicker value={pickedCustomer} onChange={handlePickCustomer} />
+            {!pickedCustomer && <p className="text-xs text-gray-400 mt-1">নতুন কাস্টমার হলে খোঁজার দরকার নেই — নিচে নাম ও মোবাইল লিখুন, নিজে থেকেই কাস্টমার তালিকায় যুক্ত হবে।</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
