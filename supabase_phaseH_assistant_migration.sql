@@ -346,9 +346,11 @@ begin
   v_checks := v_checks || jsonb_build_object('key', 'negative_stock', 'label', 'ঋণাত্মক স্টক', 'count', v_n, 'hint', 'ইনভেন্টরিতে স্টক ঠিক করুন (adjustment)');
 
   -- ঝ) মাধ্যমহীন আয় (গত ৩০ দিন) — দৈনিক মাধ্যমভিত্তিক হিসাবে "অনির্দিষ্ট"-এ যায়
+  -- POS এন্ট্রির মাধ্যম sale_payments-এ থাকে (একাধিক মাধ্যম হতে পারে), তাই এখানে POS বাদ
   select count(*) into v_n from cash_transactions
-   where type = 'income' and payment_method is null and entry_date >= (now() at time zone 'Asia/Dhaka')::date - 30;
-  v_checks := v_checks || jsonb_build_object('key', 'no_method', 'label', 'পেমেন্ট মাধ্যমহীন আয় (গত ৩০ দিন)', 'count', v_n, 'hint', 'তথ্যমূলক — নতুন এন্ট্রিতে মাধ্যম বাছুন');
+   where type = 'income' and payment_method is null and source <> 'pos'
+     and entry_date >= (now() at time zone 'Asia/Dhaka')::date - 30;
+  v_checks := v_checks || jsonb_build_object('key', 'no_method', 'label', 'হাতে-লেখা আয়ে পেমেন্ট মাধ্যম নেই (গত ৩০ দিন)', 'count', v_n, 'hint', 'তথ্যমূলক — নতুন এন্ট্রিতে মাধ্যম বাছুন');
 
   return jsonb_build_object('checks', v_checks);
 end;
