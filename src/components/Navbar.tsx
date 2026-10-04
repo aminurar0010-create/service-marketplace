@@ -65,6 +65,9 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
             <Link to="/courses" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
               কোর্স
             </Link>
+            <Link to="/tickets" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
+              টিকিট
+            </Link>
             <Link to="/blog" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
               ব্লগ
             </Link>
@@ -130,6 +133,9 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
             </Link>
             <Link to="/courses" className="block text-white/90 hover:text-white py-2">
               কোর্স
+            </Link>
+            <Link to="/tickets" className="block text-white/90 hover:text-white py-2">
+              টিকিট
             </Link>
             <Link to="/blog" className="block text-white/90 hover:text-white py-2">
               ব্লগ
