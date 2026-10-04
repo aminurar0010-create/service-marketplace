@@ -244,7 +244,7 @@ export interface CashTransaction {
   amount: number
   order_id?: string | null
   payment_method?: string | null
-  source?: 'manual' | 'pos' | 'due_collection' | 'online_order' | 'course_fee' | 'pos_refund'
+  source?: 'manual' | 'pos' | 'due_collection' | 'online_order' | 'course_fee' | 'pos_refund' | 'ticket_cost'
   created_by?: string | null
   created_at: string
 }
