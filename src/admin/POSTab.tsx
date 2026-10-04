@@ -7,8 +7,9 @@ import { printReceipt } from '../lib/receipt'
 import { printMemo } from '../lib/memo'
 import CartPanel from './pos/CartPanel'
 import QuickItems from './pos/QuickItems'
-import { CartLine, payMethodLabel } from './pos/posTypes'
+import { CartLine, PayMethod, payMethodLabel } from './pos/posTypes'
 import { PENDING_QUOTE_KEY } from './pricing/QuotesTab'
+import AiDraftBox, { DraftApply } from './pos/AiDraftBox'
 
 export default function POSTab() {
   const [services, setServices] = useState<Service[]>([])
@@ -17,7 +18,7 @@ export default function POSTab() {
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   // কোটেশন থেকে "বিক্রি করুন" চাপলে আসা তথ্য (একবারই নেওয়া হয়)
-  const [preset, setPreset] = useState<{ quoteId: string; quoteNo: string; discount: number; customer: ShopCustomer | null } | null>(null)
+  const [preset, setPreset] = useState<{ nonce?: string; quoteId?: string; quoteNo?: string; discount: number; customer: ShopCustomer | null; payments?: { method: PayMethod; amount: number }[] } | null>(null)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(PENDING_QUOTE_KEY)
@@ -252,6 +253,15 @@ export default function POSTab() {
               className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
+
+          <AiDraftBox
+            services={services}
+            inventory={inventoryItems}
+            onApply={(d: DraftApply) => {
+              setCart(d.lines)
+              setPreset({ nonce: crypto.randomUUID(), discount: 0, customer: d.customer, payments: d.payments })
+            }}
+          />
 
           <QuickItems refreshKey={quickRefresh} onAdd={handleQuickAdd} />
 

@@ -21,7 +21,7 @@ interface Props {
   onClear: () => void
   onCompleted: () => void
   /** কোটেশন থেকে এলে: কাস্টমার, ছাড় ও কোটেশন আইডি আগে থেকে বসানো */
-  preset?: { quoteId: string; quoteNo: string; discount: number; customer: ShopCustomer | null } | null
+  preset?: { nonce?: string; quoteId?: string; quoteNo?: string; discount: number; customer: ShopCustomer | null; payments?: { method: PayMethod; amount: number }[] } | null
 }
 
 type PayState = Record<PayMethod, string>
@@ -39,8 +39,13 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted,
     if (!preset) return
     if (preset.customer) setCustomer(preset.customer)
     setDiscount(String(preset.discount || 0))
+    if (preset.payments) {
+      // AI খসড়া থেকে এলে জমা ও মাধ্যম আগে থেকে বসানো (স্টাফ বদলাতে পারে)
+      setTouched(true)
+      setPay({ ...EMPTY_PAY, ...Object.fromEntries(preset.payments.map((p) => [p.method, String(p.amount)])) } as PayState)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset?.quoteId])
+  }, [preset?.nonce ?? preset?.quoteId])
   const [error, setError] = useState('')
   // রশিদের ধরন (এই ডিভাইসে মনে রাখা হয়): ছোট স্লিপ নাকি A5 মেমো
   const [format, setFormat] = useState<'slip' | 'a5'>(() => {

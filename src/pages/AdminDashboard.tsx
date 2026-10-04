@@ -880,7 +880,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           )}
 
           {/* ট্যাব কন্টেন্ট */}
-          {activeTab === 'today' && <TodayDashboard ctx={ctx} onGo={role === 'admin' ? (t) => setActiveTab(t as Tab) : undefined} />}
+          {activeTab === 'today' && <TodayDashboard ctx={ctx} canUseAI={role === 'admin'} onGo={role === 'admin' ? (t) => setActiveTab(t as Tab) : undefined} />}
           {activeTab === 'orders' && <OrdersTab ctx={ctx} />}
           {activeTab === 'services' && <ServicesTab ctx={ctx} />}
           {activeTab === 'staff' && <StaffTab ctx={ctx} />}

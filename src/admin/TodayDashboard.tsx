@@ -6,7 +6,7 @@ import TodayAlerts from './TodayAlerts'
 
 // "আজকের কাজ" ড্যাশবোর্ড — Admin login করলেই সবচেয়ে আগে এটা দেখা যায়।
 // লক্ষ্য: একনজরে বোঝা যাক আজ কোন কাজগুলো আগে করা দরকার।
-export default function TodayDashboard({ ctx, onGo }: { ctx: any; onGo?: (tab: string) => void }) {
+export default function TodayDashboard({ ctx, onGo, canUseAI }: { ctx: any; onGo?: (tab: string) => void; canUseAI?: boolean }) {
   const { orders, staffList, getServiceName, getDeadlineInfo, getStatusLabel, getPriorityLabel, getPriorityColor, stats } = ctx
   const [showQuickOrder, setShowQuickOrder] = useState(false)
 
@@ -78,7 +78,7 @@ export default function TodayDashboard({ ctx, onGo }: { ctx: any; onGo?: (tab: s
 
       <TodayAlerts onGo={onGo} />
 
-      <SmartAssistant ctx={ctx} />
+      <SmartAssistant ctx={ctx} canUseAI={canUseAI} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {widgets.map((w) => {

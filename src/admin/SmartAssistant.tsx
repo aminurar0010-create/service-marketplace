@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Sparkles, Search, Loader2 } from 'lucide-react'
-import { parseIntent, runIntent } from '../lib/assistantIntents'
+import { parseIntent, runIntent, fromAi } from '../lib/assistantIntents'
+import { askAI, AiIntent } from '../lib/aiClient'
 
 // ============================================================
 // স্মার্ট প্রশ্ন বক্স — সম্পূর্ণ ফ্রি, কোনো বাইরের AI API ছাড়াই।
@@ -24,7 +25,7 @@ type Answer = {
   rows?: { title: string; subtitle: string }[]
 }
 
-export default function SmartAssistant({ ctx }: { ctx: any }) {
+export default function SmartAssistant({ ctx, canUseAI = false }: { ctx: any; canUseAI?: boolean }) {
   const { orders, services, stats, getServiceName, getStatusLabel, getDeadlineInfo } = ctx
   const [query, setQuery] = useState('')
   const [answer, setAnswer] = useState<Answer | null>(null)
@@ -165,6 +166,25 @@ export default function SmartAssistant({ ctx }: { ctx: any }) {
         })),
       })
       return
+    }
+
+    // নিয়মে মেলেনি → অ্যাডমিন হলে AI-কে শুধু "কী জানতে চাইছেন" বুঝতে দেওয়া; ডাটা আনে আমাদের নিরাপদ RPC
+    if (canUseAI) {
+      setLoading(true)
+      const r = await askAI<AiIntent>('intent', q)
+      if (r.ok) {
+        const mapped = fromAi(r.data)
+        if (mapped) {
+          setAnswer(await runIntent(mapped))
+          setLoading(false)
+          return
+        }
+      } else if (r.code !== 'not_configured' && r.code !== 'permission') {
+        setAnswer({ summary: r.message })
+        setLoading(false)
+        return
+      }
+      setLoading(false)
     }
 
     setAnswer(null)

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { AiIntent } from './aiClient'
 
 /**
  * স্মার্ট সহকারীর "ডাটা প্রশ্ন" — AI নিজে SQL চালায় না।
@@ -14,6 +15,7 @@ type Intent =
   | { kind: 'lowstock' }
   | { kind: 'top'; period: Period }
   | { kind: 'sales'; period: Period }
+  | { kind: 'compare'; a: Period; b: Period }
 
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯'
 const toNum = (s: string) => Number(s.replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d))))
@@ -71,12 +73,50 @@ export function parseIntent(raw: string): Intent | null {
   return null
 }
 
+const dayBn = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('bn-BD', { timeZone: 'UTC', day: 'numeric', month: 'long' })
+const periodOf = (from: string | null, to: string | null, fallback: 'today' | 'month'): Period => {
+  const t = today()
+  const f = from || (fallback === 'month' ? t.slice(0, 7) + '-01' : t)
+  const e = to || (from ? t : t)
+  return { from: f, to: e < f ? f : e, label: f === e ? dayBn(f) : `${dayBn(f)} – ${dayBn(e)}` }
+}
+
+/** AI-র যাচাই-করা ইনটেন্ট → আমাদের নিজস্ব ইনটেন্ট (AI শুধু কোনটা ও কোন সময় বলে; ডাটা আনে আমাদের RPC) */
+export function fromAi(a: AiIntent): Intent | null {
+  switch (a.intent) {
+    case 'sales_summary': return { kind: 'sales', period: periodOf(a.from, a.to, 'today') }
+    case 'expense_summary': return { kind: 'expense', period: periodOf(a.from, a.to, 'today') }
+    case 'top_services': return { kind: 'top', period: periodOf(a.from, a.to, 'month') }
+    case 'customer_spend': return a.name ? { kind: 'spend', name: a.name, period: a.from || a.to ? periodOf(a.from, a.to, 'month') : null } : null
+    case 'due_customers': return { kind: 'due' }
+    case 'low_stock': return { kind: 'lowstock' }
+    case 'compare_periods': return a.from && a.to && a.b_from && a.b_to ? { kind: 'compare', a: periodOf(a.from, a.to, 'month'), b: periodOf(a.b_from, a.b_to, 'month') } : null
+    default: return null
+  }
+}
+
 const fail = (e: any): AssistantAnswer => ({
   summary: e?.message ? 'তথ্য আনতে সমস্যা হয়েছে (ফেজ H-এর SQL রান করা আছে কি?)' : String(e),
 })
 
 export async function runIntent(intent: Intent): Promise<AssistantAnswer> {
   try {
+    if (intent.kind === 'compare') {
+      const [ra, rb] = await Promise.all([
+        supabase.rpc('ai_sales_summary', { p_from: intent.a.from, p_to: intent.a.to }),
+        supabase.rpc('ai_sales_summary', { p_from: intent.b.from, p_to: intent.b.to }),
+      ])
+      if (ra.error || rb.error) throw ra.error || rb.error
+      if (ra.data?.error) return { summary: ra.data.error }
+      const A = ra.data, B = rb.data
+      const ch = (x: number, y: number) => (y > 0 ? `${x >= y ? '+' : '−'}${Math.abs(Math.round(((x - y) / y) * 100)).toLocaleString('bn-BD')}%` : '—')
+      const row = (title: string, x: number, y: number) => ({ title, subtitle: `${taka(x)} বনাম ${taka(y)} (${ch(x, y)})` })
+      return {
+        summary: `${intent.a.label} বনাম ${intent.b.label}: ক্যাশ-বুকে আয় ${taka(A.income)} বনাম ${taka(B.income)}।`,
+        rows: [row('POS বিক্রি', A.pos_total, B.pos_total), row('অনলাইন অর্ডার', A.online_total, B.online_total), row('আয়', A.income, B.income), row('ব্যয়', A.expense, B.expense), row('নিট', A.net, B.net)],
+      }
+    }
+
     if (intent.kind === 'sales' || intent.kind === 'expense') {
       const { data, error } = await supabase.rpc('ai_sales_summary', { p_from: intent.period.from, p_to: intent.period.to })
       if (error) throw error
