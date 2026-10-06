@@ -39,46 +39,76 @@ export function hexToRgb(hex: string): [number, number, number] {
 }
 
 /**
- * ব্যাকগ্রাউন্ড বদল: চার কোনার গড় রঙ ধরে কিনারা থেকে "বন্যা-ভরাট" (flood fill) — শুধু কিনারার সাথে
- * যুক্ত, ওই রঙের কাছাকাছি অংশ বদলায়। তাই সাদা জামা/শার্ট (মুখের ভেতরে) অক্ষত থাকে।
- * tol = রঙের দূরত্বের সীমা (০–২৫০)। ছবির কিনারার ১ পিক্সেল নরম করা হয়।
- * ডাটা জায়গায় বদলায়; কতটা পিক্সেল বদলাল তা ফেরত দেয়।
+ * ব্যাকগ্রাউন্ড বদল: কিনারা থেকে "বন্যা-ভরাট" (flood fill)। শুধু কিনারার সাথে যুক্ত অংশ বদলায়, তাই মুখের
+ * ভেতরের সাদা জামা/শার্ট অক্ষত থাকে।
+ * - রেফারেন্স রঙ একটা নয়, কয়েকটা: উপরের তিন জায়গা + বাঁ/ডান কিনারার উপরের অর্ধেক (+ নিচের দুই কোনা, যদি দেয়ালের মতো
+ *   ফিকে রঙ হয়) — তাই আলো-ছায়ার গ্রেডিয়েন্ট (বাঁয়ে হালকা, ডানে ধূসর) ধরা পড়ে।
+ * - পিক্সেল বদলায় যদি (ক) কোনো রেফারেন্সের tol-এর মধ্যে, অথবা (খ) পাশের (যেখান থেকে ভরাট এসেছে) পিক্সেলের
+ *   প্রায় একই রঙ এবং রেফারেন্স থেকে ২.২×tol-এর মধ্যে — এভাবে ধীরে বদলানো ছায়া অনুসরণ করা যায়, কিন্তু মুখ/জামার
+ *   হঠাৎ-বদলানো কিনারা পেরোয় না।
+ * tol = রঙের দূরত্বের সীমা। ছবির কিনারার ১ পিক্সেল নরম করা হয়। ডাটা জায়গায় বদলায়; কতটা পিক্সেল বদলাল তা ফেরত দেয়।
  */
 export function replaceBackground(img: { data: Uint8ClampedArray; width: number; height: number }, bg: [number, number, number], tol: number): number {
   const { data, width: W, height: H } = img
   if (W < 8 || H < 8) return 0
   const patch = Math.max(2, Math.floor(Math.min(W, H) * 0.03))
-  let sr = 0, sg = 0, sb = 0, n = 0
-  const corners: [number, number][] = [[0, 0], [W - patch, 0], [0, H - patch], [W - patch, H - patch]]
-  for (const [cx, cy] of corners) {
-    for (let y = cy; y < cy + patch; y++) for (let x = cx; x < cx + patch; x++) {
+  const sample = (cx: number, cy: number): [number, number, number] => {
+    const x0 = Math.min(W - patch, Math.max(0, cx)), y0 = Math.min(H - patch, Math.max(0, cy))
+    let r = 0, g = 0, b = 0, n = 0
+    for (let y = y0; y < y0 + patch; y++) for (let x = x0; x < x0 + patch; x++) {
       const i = (y * W + x) * 4
-      sr += data[i]; sg += data[i + 1]; sb += data[i + 2]; n++
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++
     }
+    return [r / n, g / n, b / n]
   }
-  const ref = [sr / n, sg / n, sb / n]
+  const sat = (c: number[]) => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2])
+  const refs: [number, number, number][] = [
+    sample(0, 0), sample((W - patch) >> 1, 0), sample(W - patch, 0),
+    sample(0, Math.floor(H * 0.25)), sample(W - patch, Math.floor(H * 0.25)),
+    sample(0, Math.floor(H * 0.5)), sample(W - patch, Math.floor(H * 0.5)),
+  ]
+  const maxSat = Math.max(...refs.map(sat))
+  for (const c of [sample(0, H - patch), sample(W - patch, H - patch)]) {
+    if (sat(c) <= maxSat + 40) refs.push(c) // নিচের কোনায় জামা থাকলে (গাঢ় রঙ) সেটা রেফারেন্স হবে না
+  }
   const tol2 = tol * tol
-  const close = (i: number) => {
-    const dr = data[i] - ref[0], dg = data[i + 1] - ref[1], db = data[i + 2] - ref[2]
-    return dr * dr + dg * dg + db * db <= tol2
+  const far2 = (tol * 2.2) * (tol * 2.2)
+  const stepTol = 14 + tol * 0.2
+  const step2 = stepTol * stepTol
+  const refDist2 = (i: number) => {
+    let best = Infinity
+    for (const c of refs) {
+      const dr = data[i] - c[0], dg = data[i + 1] - c[1], db = data[i + 2] - c[2]
+      const d = dr * dr + dg * dg + db * db
+      if (d < best) best = d
+    }
+    return best
   }
   const mask = new Uint8Array(W * H)
   const stack: number[] = []
-  const push = (x: number, y: number) => {
-    const p = y * W + x
-    if (mask[p] || !close(p * 4)) return
+  const tryAdd = (p: number, from: number) => {
+    if (mask[p]) return
+    const i = p * 4
+    const rd = refDist2(i)
+    let ok = rd <= tol2
+    if (!ok && from >= 0 && rd <= far2) {
+      const j = from * 4
+      const dr = data[i] - data[j], dg = data[i + 1] - data[j + 1], db = data[i + 2] - data[j + 2]
+      ok = dr * dr + dg * dg + db * db <= step2
+    }
+    if (!ok) return
     mask[p] = 1
     stack.push(p)
   }
-  for (let x = 0; x < W; x++) { push(x, 0); push(x, H - 1) }
-  for (let y = 0; y < H; y++) { push(0, y); push(W - 1, y) }
+  for (let x = 0; x < W; x++) { tryAdd(x, -1); tryAdd((H - 1) * W + x, -1) }
+  for (let y = 0; y < H; y++) { tryAdd(y * W, -1); tryAdd(y * W + W - 1, -1) }
   while (stack.length) {
     const p = stack.pop() as number
     const x = p % W, y = (p / W) | 0
-    if (x > 0) push(x - 1, y)
-    if (x < W - 1) push(x + 1, y)
-    if (y > 0) push(x, y - 1)
-    if (y < H - 1) push(x, y + 1)
+    if (x > 0) tryAdd(p - 1, p)
+    if (x < W - 1) tryAdd(p + 1, p)
+    if (y > 0) tryAdd(p - W, p)
+    if (y < H - 1) tryAdd(p + W, p)
   }
   let changed = 0
   const edge: number[] = []

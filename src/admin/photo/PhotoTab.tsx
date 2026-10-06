@@ -20,7 +20,7 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
   // ব্যাকগ্রাউন্ড
   const [bgOn, setBgOn] = useState(true)
   const [bgColor, setBgColor] = useState(SKY_BLUE)
-  const [tol, setTol] = useState(60)
+  const [tol, setTol] = useState(45)
   // শিট
   const [sheetId, setSheetId] = useState('a4')
   const [margin, setMargin] = useState(5)
