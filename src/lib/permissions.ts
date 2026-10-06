@@ -20,6 +20,7 @@ export const TAB_ACCESS: Record<string, DashboardRole[]> = {
   cashbook: ALL,
   quotes: ALL,
   tickets: ALL,
+  photo: ALL,
   // নিচেরগুলো ইচ্ছাকৃতভাবে শুধু অ্যাডমিন (স্পষ্টতার জন্য লেখা)
   services: ADMIN, staff: ADMIN, coupons: ADMIN, performance: ADMIN, messages: ADMIN, gallery: ADMIN,
   reviews: ADMIN, reports: ADMIN, inventory: ADMIN, pos: ADMIN, due_collection: ADMIN, users: ADMIN,
