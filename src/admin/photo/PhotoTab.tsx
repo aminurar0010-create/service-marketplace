@@ -29,6 +29,15 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
   const [copies, setCopies] = useState(8)
   const [cutLines, setCutLines] = useState(true)
 
+  // হাতে ঠিক করার ব্রাশ
+  const [mode, setMode] = useState<'move' | 'restore' | 'paint'>('move')
+  const [brush, setBrush] = useState(22) // কপির পিক্সেলে ব্যাসার্ধ
+  const [ovVer, setOvVer] = useState(0)
+  const baseRef = useRef<{ orig: Uint8ClampedArray; rep: Uint8ClampedArray } | null>(null)
+  const ovRef = useRef<Uint8Array>(new Uint8Array(0)) // ০ = স্বয়ংক্রিয়, ১ = আসল ছবি, ২ = ব্যাকগ্রাউন্ড রঙ
+  const ovKey = useRef('')
+  const stroke = useRef<{ x: number; y: number } | null>(null)
+
   const photoCanvas = useRef<HTMLCanvasElement>(null)
   const sheetCanvas = useRef<HTMLCanvasElement>(null)
   const drag = useRef<{ x: number; y: number } | null>(null)
@@ -52,6 +61,26 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
     return { x: Math.min(mx, Math.max(-mx, o.x)), y: Math.min(my, Math.max(-my, o.y)) }
   }, [img, coverScale, cw, ch])
 
+  // স্বয়ংক্রিয় ফলাফলের উপর ব্রাশের দাগ বসিয়ে ক্যানভাসে আঁকা
+  const compose = useCallback(() => {
+    const c = photoCanvas.current, base = baseRef.current
+    if (!c || !base) return
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    const n = c.width * c.height
+    const ov = ovRef.current
+    const bg = hexToRgb(bgColor)
+    const out = ctx.createImageData(c.width, c.height)
+    for (let p = 0; p < n; p++) {
+      const i = p * 4
+      const o = ov.length === n ? ov[p] : 0
+      if (o === 2) { out.data[i] = bg[0]; out.data[i + 1] = bg[1]; out.data[i + 2] = bg[2] }
+      else { const src = o === 1 ? base.orig : base.rep; out.data[i] = src[i]; out.data[i + 1] = src[i + 1]; out.data[i + 2] = src[i + 2] }
+      out.data[i + 3] = 255
+    }
+    ctx.putImageData(out, 0, 0)
+  }, [bgColor])
+
   // একটি ছবি আঁকা (চূড়ান্ত রেজোলিউশনে)
   useEffect(() => {
     const c = photoCanvas.current
@@ -61,17 +90,20 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
     if (!ctx) return
     ctx.fillStyle = bgColor
     ctx.fillRect(0, 0, cw, ch)
-    if (!img) return
+    if (!img) { baseRef.current = null; return }
     const s = coverScale * zoom
     const o = clampOff(off, zoom)
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(img, cw / 2 + o.x * cw - (img.naturalWidth * s) / 2, ch / 2 + o.y * ch - (img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s)
-    if (bgOn) {
-      const data = ctx.getImageData(0, 0, cw, ch)
-      replaceBackground(data, hexToRgb(bgColor), tol)
-      ctx.putImageData(data, 0, 0)
-    }
-  }, [img, zoom, off, bgOn, bgColor, tol, cw, ch, coverScale, clampOff])
+    // ক্রপ/জুম/ছবি/মাপ বদলালে ব্রাশের দাগ আর মেলে না — মুছে যায়
+    const key = `${img.src}|${zoom}|${off.x.toFixed(4)}|${off.y.toFixed(4)}|${cw}|${ch}`
+    if (key !== ovKey.current || ovRef.current.length !== cw * ch) { ovRef.current = new Uint8Array(cw * ch); ovKey.current = key }
+    const orig = ctx.getImageData(0, 0, cw, ch)
+    const rep = new Uint8ClampedArray(orig.data)
+    if (bgOn) replaceBackground({ data: rep, width: cw, height: ch }, hexToRgb(bgColor), tol)
+    baseRef.current = { orig: orig.data, rep }
+    compose()
+  }, [img, zoom, off, bgOn, bgColor, tol, cw, ch, coverScale, clampOff, compose])
 
   // শিট আঁকা
   const drawSheet = useCallback((): HTMLCanvasElement | null => {
@@ -108,7 +140,7 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
     return c
   }, [validSize, layout, sheet, pwMm, phMm, gap, margin, printCount, cutLines])
 
-  useEffect(() => { drawSheet() }, [drawSheet, img, zoom, off, bgOn, bgColor, tol])
+  useEffect(() => { drawSheet() }, [drawSheet, img, zoom, off, bgOn, bgColor, tol, ovVer])
 
   const onFile = (f: File | null | undefined) => {
     if (!f) return
@@ -121,15 +153,59 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
     im.src = url
   }
 
-  const onDown = (e: React.PointerEvent) => { if (!img) return; (e.target as Element).setPointerCapture(e.pointerId); drag.current = { x: e.clientX, y: e.clientY } }
+  const toCanvasXY = (e: React.PointerEvent) => {
+    const rect = (photoCanvas.current as HTMLCanvasElement).getBoundingClientRect()
+    return { x: ((e.clientX - rect.left) / rect.width) * cw, y: ((e.clientY - rect.top) / rect.height) * ch }
+  }
+  const stamp = (cx: number, cy: number) => {
+    const val = mode === 'restore' ? 1 : 2
+    const r = brush, ov = ovRef.current
+    if (ov.length !== cw * ch) return
+    const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(cw - 1, Math.ceil(cx + r))
+    const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(ch - 1, Math.ceil(cy + r))
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r) ov[y * cw + x] = val
+    }
+  }
+  const onDown = (e: React.PointerEvent) => {
+    if (!img) return
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+    if (mode === 'move') { drag.current = { x: e.clientX, y: e.clientY }; return }
+    const p = toCanvasXY(e)
+    stroke.current = p
+    stamp(p.x, p.y)
+    compose()
+  }
   const onMove = (e: React.PointerEvent) => {
+    if (mode !== 'move') {
+      const last = stroke.current
+      if (!last) return
+      const p = toCanvasXY(e)
+      const steps = Math.max(1, Math.ceil(Math.hypot(p.x - last.x, p.y - last.y) / Math.max(1, brush / 3)))
+      for (let i = 1; i <= steps; i++) stamp(last.x + ((p.x - last.x) * i) / steps, last.y + ((p.y - last.y) * i) / steps)
+      stroke.current = p
+      compose()
+      return
+    }
     if (!drag.current || !photoCanvas.current) return
     const rect = photoCanvas.current.getBoundingClientRect()
     const dx = (e.clientX - drag.current.x) / rect.width, dy = (e.clientY - drag.current.y) / rect.height
     drag.current = { x: e.clientX, y: e.clientY }
     setOff((o) => clampOff({ x: o.x + dx, y: o.y + dy }, zoom))
   }
-  const onUp = () => { drag.current = null }
+  const onUp = () => {
+    drag.current = null
+    if (stroke.current) { stroke.current = null; setOvVer((v) => v + 1) } // শিটের প্রিভিউ নতুন করে আঁকতে
+  }
+  const resetBrush = () => { ovRef.current = new Uint8Array(cw * ch); compose(); setOvVer((v) => v + 1) }
+
+  // ব্রাশের মাপের গোল কার্সার
+  const cursorCss = useMemo(() => {
+    if (mode === 'move') return 'grab'
+    const d = Math.min(120, Math.max(10, Math.round(brush * 2 * (PREVIEW_W / cw))))
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${d}" height="${d}"><circle cx="${d / 2}" cy="${d / 2}" r="${d / 2 - 1}" fill="none" stroke="black" stroke-width="2"/><circle cx="${d / 2}" cy="${d / 2}" r="${d / 2 - 2.5}" fill="none" stroke="white" stroke-width="1.5"/></svg>`
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${d / 2} ${d / 2}, crosshair`
+  }, [mode, brush, cw])
 
   const download = (which: 'photo' | 'sheet') => {
     const c = which === 'photo' ? photoCanvas.current : drawSheet()
@@ -177,9 +253,9 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
 
           <div className="flex flex-col items-center gap-3">
             <canvas ref={photoCanvas} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-              style={{ width: PREVIEW_W, maxWidth: '100%', aspectRatio: `${cw} / ${ch}`, touchAction: 'none', cursor: img ? 'grab' : 'default' }}
+              style={{ width: PREVIEW_W, maxWidth: '100%', aspectRatio: `${cw} / ${ch}`, touchAction: 'none', cursor: img ? cursorCss : 'default' }}
               className="border-2 border-dashed border-gray-300 rounded bg-gray-50" />
-            <p className="text-xs text-gray-500">{img ? 'ছবির উপর আঙুল/মাউস টেনে মুখ ঠিক জায়গায় আনুন' : 'আগে একটা ছবি বাছুন'}</p>
+            <p className="text-xs text-gray-500">{!img ? 'আগে একটা ছবি বাছুন' : mode === 'move' ? 'ছবির উপর আঙুল/মাউস টেনে মুখ ঠিক জায়গায় আনুন' : mode === 'restore' ? 'যেখানে ভুলে নীল হয়েছে সেখানে ঘষুন — আসল ছবি ফিরবে' : 'যেখানে দেয়াল রয়ে গেছে সেখানে ঘষুন — নীল হবে'}</p>
           </div>
 
           <label className="block text-sm">
@@ -205,6 +281,20 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
               </label>
             </div>
             <p className="text-xs text-amber-700 bg-amber-50 rounded p-2">সাদা/হালকা সমান ব্যাকগ্রাউন্ডের ছবিতে ভালো কাজ করে। চুলের কিনারা বা ছায়ায় অসমান হতে পারে — প্রিন্টের আগে প্রিভিউ দেখুন; ঠিক না হলে সংবেদনশীলতা কমান/বাড়ান।</p>
+            <div className="border rounded-lg p-3 space-y-2 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-800">হাতে ঠিক করুন (ব্রাশ)</p>
+              <div className="flex flex-wrap gap-2">
+                {([['move', 'ছবি সরান'], ['restore', 'আসল ফিরান'], ['paint', 'নীল করুন']] as const).map(([id, label]) => (
+                  <button key={id} type="button" disabled={!img} onClick={() => setMode(id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold border disabled:opacity-40 ${mode === id ? (id === 'restore' ? 'bg-emerald-600 text-white border-emerald-600' : id === 'paint' ? 'bg-sky-600 text-white border-sky-600' : 'bg-indigo-600 text-white border-indigo-600') : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>{label}</button>
+                ))}
+                <button type="button" disabled={!img} onClick={resetBrush} className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40">ব্রাশের কাজ মুছুন</button>
+              </div>
+              <label className="block text-sm"><span className="text-gray-700">ব্রাশের মাপ ({brush})</span>
+                <input type="range" min={4} max={80} step={1} value={brush} disabled={mode === 'move'} onChange={(e) => setBrush(Number(e.target.value))} className="w-full" />
+              </label>
+              <p className="text-xs text-gray-500">আগে জুম/সরানো ঠিক করুন, তারপর ব্রাশ ধরুন — জুম বা ছবি সরালে ব্রাশের কাজ মুছে যায়। ছোট জায়গায় কাজ করতে ব্রাশ ছোট করুন।</p>
+            </div>
           </div>
         </div>
 
