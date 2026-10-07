@@ -4,6 +4,11 @@ import { canViewTab } from '../../lib/permissions'
 import { computeLayout, DPI, hexToRgb, mmToPx, replaceBackground, SHEETS, toMm, Unit } from './photoUtils'
 
 const SKY_BLUE = '#87CEEB'
+
+// AI মডেল (MODNet, Apache-2.0) — একবার লোড হলে ব্রাউজার ক্যাশে থাকে; ছবি কোথাও আপলোড হয় না
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let segmenterPromise: Promise<any> | null = null
+let aiReady = false
 const PREVIEW_W = 300
 
 /** পাসপোর্ট/আইডি ফটো টুল — ছবি আপলোড/তোলা → ক্রপ → স্কাই ব্লু ব্যাকগ্রাউন্ড → শিটে অনেক কপি → প্রিন্ট। সবই ব্রাউজারে, ছবি সার্ভারে যায় না। */
@@ -37,6 +42,18 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
   const ovRef = useRef<Uint8Array>(new Uint8Array(0)) // ০ = স্বয়ংক্রিয়, ১ = আসল ছবি, ২ = ব্যাকগ্রাউন্ড রঙ
   const ovKey = useRef('')
   const stroke = useRef<{ x: number; y: number } | null>(null)
+
+  // স্মার্ট (AI) ব্যাকগ্রাউন্ড
+  const [aiOn, setAiOn] = useState(true)
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'running' | 'error'>('idle')
+  const [aiMsg, setAiMsg] = useState('')
+  const [aiVer, setAiVer] = useState(0)
+  const [edge, setEdge] = useState(0) // -25 … +25 : কিনারা পাতলা/ঘন
+  const matteRef = useRef<{ img: HTMLImageElement; canvas: HTMLCanvasElement } | null>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
+  imgRef.current = img
+  const hasMatte = !!img && matteRef.current?.img === img
+  const aiBusy = aiStatus === 'loading' || aiStatus === 'running'
 
   const photoCanvas = useRef<HTMLCanvasElement>(null)
   const sheetCanvas = useRef<HTMLCanvasElement>(null)
@@ -93,17 +110,88 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
     if (!img) { baseRef.current = null; return }
     const s = coverScale * zoom
     const o = clampOff(off, zoom)
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s
+    const dx = cw / 2 + o.x * cw - dw / 2, dy = ch / 2 + o.y * ch - dh / 2
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, cw / 2 + o.x * cw - (img.naturalWidth * s) / 2, ch / 2 + o.y * ch - (img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s)
+    ctx.drawImage(img, dx, dy, dw, dh)
     // ক্রপ/জুম/ছবি/মাপ বদলালে ব্রাশের দাগ আর মেলে না — মুছে যায়
     const key = `${img.src}|${zoom}|${off.x.toFixed(4)}|${off.y.toFixed(4)}|${cw}|${ch}`
     if (key !== ovKey.current || ovRef.current.length !== cw * ch) { ovRef.current = new Uint8Array(cw * ch); ovKey.current = key }
     const orig = ctx.getImageData(0, 0, cw, ch)
     const rep = new Uint8ClampedArray(orig.data)
-    if (bgOn) replaceBackground({ data: rep, width: cw, height: ch }, hexToRgb(bgColor), tol)
+    const bg = hexToRgb(bgColor)
+    const m = matteRef.current
+    if (bgOn) {
+      if (aiOn && m && m.img === img) {
+        // AI মাস্ক: ছবির মতোই একই জায়গায়/মাপে বসিয়ে অ্যালফা পড়া → অগ্রভাগ ও ব্যাকগ্রাউন্ড মেশানো
+        const t = document.createElement('canvas')
+        t.width = cw; t.height = ch
+        const tctx = t.getContext('2d', { willReadFrequently: true })
+        if (tctx) {
+          tctx.imageSmoothingQuality = 'high'
+          tctx.drawImage(m.canvas, dx, dy, dw, dh)
+          const alpha = tctx.getImageData(0, 0, cw, ch).data
+          const lo = 0.1 + edge / 100, hi = 0.9 + edge / 100
+          for (let p = 0; p < cw * ch; p++) {
+            const i = p * 4
+            const a = Math.min(1, Math.max(0, (alpha[i + 3] / 255 - lo) / (hi - lo)))
+            rep[i] = orig.data[i] * a + bg[0] * (1 - a)
+            rep[i + 1] = orig.data[i + 1] * a + bg[1] * (1 - a)
+            rep[i + 2] = orig.data[i + 2] * a + bg[2] * (1 - a)
+          }
+        }
+      } else {
+        replaceBackground({ data: rep, width: cw, height: ch }, bg, tol)
+      }
+    }
     baseRef.current = { orig: orig.data, rep }
     compose()
-  }, [img, zoom, off, bgOn, bgColor, tol, cw, ch, coverScale, clampOff, compose])
+  }, [img, zoom, off, bgOn, bgColor, tol, cw, ch, coverScale, clampOff, compose, aiOn, aiVer, edge])
+
+  // স্মার্ট (AI) ব্যাকগ্রাউন্ড চালানো
+  const runAI = async (target: HTMLImageElement) => {
+    try {
+      setAiStatus('loading'); setAiMsg('AI মডেল লোড হচ্ছে… (প্রথমবার একটু সময় লাগে)')
+      if (!segmenterPromise) {
+        segmenterPromise = (async () => {
+          const { pipeline } = await import('@huggingface/transformers')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return pipeline('background-removal', 'Xenova/modnet', { progress_callback: (p: any) => {
+            if (p && p.status === 'progress' && typeof p.progress === 'number') setAiMsg(`AI মডেল নামছে… ${Math.round(p.progress)}%`)
+          } })
+        })()
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const seg: any = await segmenterPromise
+      aiReady = true
+      setAiStatus('running'); setAiMsg('ছবি বিশ্লেষণ হচ্ছে… (কয়েক সেকেন্ড)')
+      const k = Math.min(1, 1024 / Math.max(target.naturalWidth, target.naturalHeight))
+      const sw = Math.max(1, Math.round(target.naturalWidth * k)), sh = Math.max(1, Math.round(target.naturalHeight * k))
+      const src = document.createElement('canvas')
+      src.width = sw; src.height = sh
+      src.getContext('2d')?.drawImage(target, 0, 0, sw, sh)
+      const blob: Blob = await new Promise((res, rej) => src.toBlob((b) => (b ? res(b) : rej(new Error('ছবি পড়া গেল না'))), 'image/png'))
+      const url = URL.createObjectURL(blob)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let out: any
+      try { out = await seg(url) } finally { URL.revokeObjectURL(url) }
+      const { data, width, height, channels } = out as { data: Uint8ClampedArray; width: number; height: number; channels: number }
+      const m = document.createElement('canvas')
+      m.width = width; m.height = height
+      const mctx = m.getContext('2d')
+      if (!mctx) throw new Error('canvas নেই')
+      const md = mctx.createImageData(width, height)
+      for (let p = 0; p < width * height; p++) md.data[p * 4 + 3] = channels === 4 ? data[p * 4 + 3] : 255
+      mctx.putImageData(md, 0, 0)
+      if (imgRef.current !== target) { setAiStatus('idle'); setAiMsg(''); return } // ইতিমধ্যে অন্য ছবি বাছা হয়েছে
+      matteRef.current = { img: target, canvas: m }
+      setAiOn(true); setAiVer((v) => v + 1); setAiStatus('idle'); setAiMsg('')
+    } catch (e) {
+      segmenterPromise = null
+      setAiStatus('error')
+      setAiMsg('AI চালানো গেল না — ইন্টারনেট দেখে আবার চেষ্টা করুন। (এর মধ্যে নিচের রঙ-ভিত্তিক পদ্ধতি কাজ করছে।) ' + (e instanceof Error ? e.message : ''))
+    }
+  }
 
   // শিট আঁকা
   const drawSheet = useCallback((): HTMLCanvasElement | null => {
@@ -148,7 +236,7 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
     if (f.size > 25 * 1024 * 1024) return alert('ছবিটা অনেক বড় (২৫ MB-এর বেশি)')
     const url = URL.createObjectURL(f)
     const im = new Image()
-    im.onload = () => { setImg(im); setFileName(f.name); setZoom(1); setOff({ x: 0, y: 0.05 }) }
+    im.onload = () => { setImg(im); setFileName(f.name); setZoom(1); setOff({ x: 0, y: 0.05 }); if (aiReady) void runAI(im) }
     im.onerror = () => { URL.revokeObjectURL(url); alert('ছবিটা খোলা গেল না') }
     im.src = url
   }
@@ -266,8 +354,26 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
 
           <div className="border-t pt-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
-              <input type="checkbox" checked={bgOn} onChange={(e) => setBgOn(e.target.checked)} /> ব্যাকগ্রাউন্ড বদলান (কিনারার রঙ ধরে)
+              <input type="checkbox" checked={bgOn} onChange={(e) => setBgOn(e.target.checked)} /> ব্যাকগ্রাউন্ড বদলান
             </label>
+            <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-3 space-y-2">
+              <button type="button" disabled={!img || aiBusy} onClick={() => img && void runAI(img)}
+                className="w-full px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50">
+                {aiBusy ? '⏳ ' + (aiMsg || 'চলছে…') : hasMatte ? '✨ স্মার্ট AI আবার চালান' : '✨ স্মার্ট ব্যাকগ্রাউন্ড (AI) — ১ ক্লিকে'}
+              </button>
+              {aiStatus === 'error' && <p className="text-xs text-red-600">{aiMsg}</p>}
+              {hasMatte && (
+                <div className="space-y-1">
+                  <label className="flex items-center gap-2 text-sm text-gray-800"><input type="checkbox" checked={aiOn} onChange={(e) => setAiOn(e.target.checked)} /> AI ফলাফল ব্যবহার করুন</label>
+                  {aiOn && (
+                    <label className="block text-sm"><span className="text-gray-700">কিনারা ({edge > 0 ? 'ভেতরে ঢোকানো' : edge < 0 ? 'বাইরে ছড়ানো' : 'স্বাভাবিক'})</span>
+                      <input type="range" min={-25} max={25} step={1} value={edge} onChange={(e) => setEdge(Number(e.target.value))} className="w-full" />
+                    </label>
+                  )}
+                </div>
+              )}
+              <p className="text-xs text-gray-600">ছবি এই ডিভাইসেই প্রসেস হয়, কোথাও যায় না। প্রথমবার AI মডেল (~২৫ MB) ইন্টারনেট থেকে নামে, তারপর ব্রাউজারে জমা থাকে; পরের ছবিতে নিজে থেকেই চলবে। পুরনো ফোনে ৫–১৫ সেকেন্ড লাগতে পারে।</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm"><span className="text-gray-700">ব্যাকগ্রাউন্ড রঙ</span>
                 <div className="flex items-center gap-2 mt-1">
@@ -276,8 +382,8 @@ export default function PhotoTab({ role, onGo }: { role?: string; onGo?: (tab: s
                   <button type="button" onClick={() => setBgColor('#FFFFFF')} className="text-xs px-2 py-1 rounded border text-gray-700 hover:bg-gray-50">সাদা</button>
                 </div>
               </label>
-              <label className="text-sm"><span className="text-gray-700">সংবেদনশীলতা ({tol})</span>
-                <input type="range" min={10} max={160} step={1} value={tol} disabled={!bgOn} onChange={(e) => setTol(Number(e.target.value))} className="w-full mt-2" />
+              <label className="text-sm"><span className="text-gray-700">রঙ-ভিত্তিক সংবেদনশীলতা ({tol}){bgOn && aiOn && hasMatte ? ' — AI চালু, লাগে না' : ''}</span>
+                <input type="range" min={10} max={160} step={1} value={tol} disabled={!bgOn || (aiOn && hasMatte)} onChange={(e) => setTol(Number(e.target.value))} className="w-full mt-2" />
               </label>
             </div>
             <p className="text-xs text-amber-700 bg-amber-50 rounded p-2">সাদা/হালকা সমান ব্যাকগ্রাউন্ডের ছবিতে ভালো কাজ করে। চুলের কিনারা বা ছায়ায় অসমান হতে পারে — প্রিন্টের আগে প্রিভিউ দেখুন; ঠিক না হলে সংবেদনশীলতা কমান/বাড়ান।</p>
