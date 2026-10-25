@@ -135,7 +135,6 @@ export default function OrderForm() {
         .from('product_variants')
         .select('*')
         .eq('service_id', serviceId)
-        .eq('is_active', true)
         .order('display_order', { ascending: true })
 
       if (error) throw error
