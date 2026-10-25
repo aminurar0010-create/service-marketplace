@@ -8,11 +8,5 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/telegram",
-      "schedule": "0 16 * * *"
-    }
   ]
 }
