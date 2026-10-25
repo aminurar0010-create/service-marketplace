@@ -44,12 +44,17 @@ begin
       return jsonb_build_object('success', false, 'message', 'সার্ভিসটি পাওয়া যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।');
     end if;
 
-    -- সবচেয়ে কম সম্ভাব্য ভ্যারিয়েন্ট-ছাড় (কোনো গ্রুপে ঋণাত্মক পার্থক্য থাকলে সেটা ধরা হয়)
-    select coalesce(sum(least(0, g.min_delta)), 0) into v_min_delta
-      from (select min(price_delta) as min_delta
-              from product_variants
-             where service_id = p_service_id and is_active
-             group by variant_group) g;
+    -- সবচেয়ে কম সম্ভাব্য ভ্যারিয়েন্ট-ছাড় (কোনো গ্রুপে ঋণাত্মক পার্থক্য থাকলে সেটা ধরা হয়)।
+    -- ভ্যারিয়েন্ট টেবিল/কলামে সমস্যা থাকলেও অর্ডার আটকাবে না — তখন শুধু সার্ভিসের দাম ধরা হয়।
+    begin
+      select coalesce(sum(least(0, g.min_delta)), 0) into v_min_delta
+        from (select min(price_delta) as min_delta
+                from product_variants
+               where service_id = p_service_id
+               group by variant_group) g;
+    exception when undefined_column or undefined_table then
+      v_min_delta := 0;
+    end;
 
     if p_total_amount is null or p_total_amount < (v_service_price + v_min_delta) - 0.5 then
       return jsonb_build_object('success', false, 'message', 'দাম মিলছে না। পেজটি রিফ্রেশ করে আবার চেষ্টা করুন।');
