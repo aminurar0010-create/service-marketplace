@@ -13,14 +13,20 @@ interface Props {
   value: ShopCustomer | null
   onChange: (customer: ShopCustomer | null) => void
   autoFocus?: boolean
+  /** সংখ্যা বাড়লে নতুন-কাস্টমার ফর্ম নিজে খোলে (যেমন বাকিতে বিক্রির সময় কাস্টমার না থাকলে) */
+  openCreateSignal?: number
 }
 
 /** ফোন/নাম/কাস্টমার কোড দিয়ে খোঁজে; না পেলে নতুন কাস্টমার তৈরির ফর্ম দেখায়। */
-export default function CustomerPicker({ value, onChange, autoFocus }: Props) {
+export default function CustomerPicker({ value, onChange, autoFocus, openCreateSignal }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ShopCustomer[]>([])
   const [searching, setSearching] = useState(false)
   const [creating, setCreating] = useState(false)
+
+  useEffect(() => {
+    if (openCreateSignal) setCreating(true)
+  }, [openCreateSignal])
 
   useEffect(() => {
     const q = query.trim()
@@ -103,6 +109,16 @@ export default function CustomerPicker({ value, onChange, autoFocus }: Props) {
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" size={16} />
         )}
       </div>
+
+      {!creating && (
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="mt-1.5 text-xs font-semibold text-green-700 hover:text-green-800 flex items-center gap-1"
+        >
+          <UserPlus size={13} /> নতুন কাস্টমার যোগ করুন
+        </button>
+      )}
 
       {(results.length > 0 || canCreate) && !creating && (
         <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">

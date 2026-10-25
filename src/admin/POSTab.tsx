@@ -168,6 +168,19 @@ export default function POSTab() {
     )
   }
 
+  /** পরিমাণ সরাসরি লিখে দেওয়া (যেমন ৪৫); স্টকের বেশি হলে সর্বোচ্চে আটকে সতর্ক করে */
+  const setQuantity = (key: string, qty: number) => {
+    if (!Number.isFinite(qty) || qty < 1) return
+    const line = cart.find((l) => l.key === key)
+    if (!line) return
+    let next = Math.floor(qty)
+    if (line.max_quantity !== undefined && next > line.max_quantity) {
+      alert(`পর্যাপ্ত স্টক নেই (সর্বোচ্চ ${line.max_quantity})`)
+      next = line.max_quantity
+    }
+    setCart((prev) => prev.map((l) => (l.key === key ? { ...l, quantity: next } : l)))
+  }
+
   const removeLine = (key: string) => {
     setCart((prev) => prev.filter((l) => l.key !== key))
   }
@@ -406,6 +419,7 @@ export default function POSTab() {
       <CartPanel
         cart={cart}
         onQty={updateQuantity}
+        onSetQty={setQuantity}
         onRemove={removeLine}
         onClear={() => {
           setCart([])

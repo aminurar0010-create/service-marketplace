@@ -14,9 +14,38 @@ import { printMemo } from '../../lib/memo'
 import CustomerPicker from '../../components/CustomerPicker'
 import { CartLine, PAY_METHODS, PayMethod } from './posTypes'
 
+const BN_DIGITS: Record<string, string> = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' }
+
+/** পরিমাণ লেখার ঘর: বাংলা/ইংরেজি সংখ্যা চলে; ফোকাস সরলে বা Enter চাপলে কার্টে বসে */
+function QtyInput({ value, onCommit }: { value: number; onCommit: (n: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => setText(String(value)), [value])
+  const commit = () => {
+    const n = parseInt(text, 10)
+    if (Number.isFinite(n) && n >= 1 && n !== value) onCommit(n)
+    else setText(String(value))
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      aria-label="পরিমাণ"
+      value={text}
+      onChange={(e) => setText(e.target.value.replace(/[০-৯]/g, (d) => BN_DIGITS[d]).replace(/[^0-9]/g, ''))}
+      onFocus={(e) => e.target.select()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+      className="text-sm w-12 text-center border border-gray-300 rounded py-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    />
+  )
+}
+
 interface Props {
   cart: CartLine[]
   onQty: (key: string, delta: number) => void
+  onSetQty: (key: string, qty: number) => void
   onRemove: (key: string) => void
   onClear: () => void
   onCompleted: () => void
@@ -28,8 +57,9 @@ type PayState = Record<PayMethod, string>
 const EMPTY_PAY: PayState = { cash: '', bkash: '', nagad: '', rocket: '', other: '' }
 
 /** কার্ট + কাস্টমার + পেমেন্ট (আংশিক/বাকি সহ) + চেকআউট */
-export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted, preset }: Props) {
+export default function CartPanel({ cart, onQty, onSetQty, onRemove, onClear, onCompleted, preset }: Props) {
   const [customer, setCustomer] = useState<ShopCustomer | null>(null)
+  const [createSignal, setCreateSignal] = useState(0)
   const [discount, setDiscount] = useState('0')
   const [pay, setPay] = useState<PayState>(EMPTY_PAY)
   const [touched, setTouched] = useState(false) // কাস্টমার নিজে পেমেন্ট বদলালে true
@@ -106,7 +136,10 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted,
     setError('')
     if (cart.length === 0) return setError('কার্টে কোনো আইটেম নেই')
     if (overpaid) return setError('পরিশোধের পরিমাণ মোট বিলের বেশি হয়েছে')
-    if (due > 0 && !customer) return setError('বাকিতে বিক্রির জন্য আগে কাস্টমার নির্বাচন করুন')
+    if (due > 0 && !customer) {
+      setCreateSignal((n) => n + 1) // নতুন কাস্টমার ফর্ম নিজে খুলে যাবে
+      return setError('বাকিতে বিক্রির জন্য কাস্টমার দিন — নিচের ঘরে খুঁজুন বা নতুন কাস্টমার যোগ করুন')
+    }
 
     const payments = touched
       ? PAY_METHODS.map((m) => ({ method: m.id, amount: Number(pay[m.id] || 0) })).filter((p) => p.amount > 0)
@@ -196,7 +229,7 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted,
                 <button onClick={() => onQty(line.key, -1)} className="p-1 border border-gray-300 rounded hover:bg-gray-50">
                   <Minus size={12} />
                 </button>
-                <span className="text-sm w-5 text-center">{line.quantity}</span>
+                <QtyInput value={line.quantity} onCommit={(n) => onSetQty(line.key, n)} />
                 <button onClick={() => onQty(line.key, 1)} className="p-1 border border-gray-300 rounded hover:bg-gray-50">
                   <Plus size={12} />
                 </button>
@@ -214,7 +247,14 @@ export default function CartPanel({ cart, onQty, onRemove, onClear, onCompleted,
           <p className="text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
             <User size={13} /> কাস্টমার (ফোন দিয়ে খুঁজুন)
           </p>
-          <CustomerPicker value={customer} onChange={setCustomer} />
+          <CustomerPicker
+            value={customer}
+            onChange={(c) => {
+              setCustomer(c)
+              setError('') // কাস্টমার বেছে নিলে আগের লাল বার্তা সরে যায়
+            }}
+            openCreateSignal={createSignal}
+          />
           {!customer && <p className="text-xs text-gray-400 mt-1">ঐচ্ছিক — তবে বাকিতে বিক্রি করতে হলে বাধ্যতামূলক</p>}
         </div>
 
