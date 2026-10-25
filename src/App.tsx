@@ -1,32 +1,35 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, Profile, Customer } from './lib/supabase'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import InstallPrompt from './components/InstallPrompt'
 import Analytics from './components/Analytics'
-import ChatWidget from './components/ChatWidget'
+import PageLoader from './components/PageLoader'
 import SiteBanner from './components/SiteBanner'
 import ScrollToHash from './components/ScrollToHash'
 
 // Pages
 import Home from './pages/Home'
-import OrderForm from './pages/OrderForm'
-import TrackingStatus from './pages/TrackingStatus'
-import AdminLogin from './pages/AdminLogin'
-import AdminDashboard from './pages/AdminDashboard'
-import StaffDashboard from './pages/StaffDashboard'
-import CustomerLogin from './pages/CustomerLogin'
-import CustomerDashboard from './pages/CustomerDashboard'
-import Blog from './pages/Blog'
-import BlogPostPage from './pages/BlogPostPage'
-import PromptLibrary from './pages/PromptLibrary'
-import PortfolioDetailPage from './pages/PortfolioDetailPage'
-import ServiceDetailPage from './pages/ServiceDetailPage'
-import Courses from './pages/Courses'
-import TicketRequest from './pages/TicketRequest'
-import CourseDetailPage from './pages/CourseDetailPage'
+
+// ভারী পেজগুলো দরকার হলেই লোড হয় (প্রথম লোড হালকা রাখতে)
+const OrderForm = lazy(() => import('./pages/OrderForm'))
+const TrackingStatus = lazy(() => import('./pages/TrackingStatus'))
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const StaffDashboard = lazy(() => import('./pages/StaffDashboard'))
+const CustomerLogin = lazy(() => import('./pages/CustomerLogin'))
+const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'))
+const Blog = lazy(() => import('./pages/Blog'))
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'))
+const PromptLibrary = lazy(() => import('./pages/PromptLibrary'))
+const PortfolioDetailPage = lazy(() => import('./pages/PortfolioDetailPage'))
+const ServiceDetailPage = lazy(() => import('./pages/ServiceDetailPage'))
+const Courses = lazy(() => import('./pages/Courses'))
+const TicketRequest = lazy(() => import('./pages/TicketRequest'))
+const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'))
+const ChatWidget = lazy(() => import('./components/ChatWidget'))
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -94,6 +97,7 @@ export default function App() {
         <Analytics />
         <SiteBanner />
         <Navbar user={user} profile={profile} customer={customer} />
+        <Suspense fallback={<PageLoader full />}>
         <Routes>
           {/* জনসাধারণের রুট */}
           <Route path="/" element={<Home />} />
@@ -185,9 +189,12 @@ export default function App() {
           {/* ৪০৪ */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </Suspense>
         <Footer />
         <InstallPrompt />
-        <ChatWidget />
+        <Suspense fallback={null}>
+          <ChatWidget />
+        </Suspense>
       </div>
     </Router>
   )

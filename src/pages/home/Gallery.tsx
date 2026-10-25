@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { X, ZoomIn } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import shopFront from '../../assets/gallery/shop-front.jpg'
-import shopPanel from '../../assets/gallery/shop-panel.jpg'
-import shopDesk from '../../assets/gallery/shop-desk.jpg'
+import shopFront from '../../assets/gallery/shop-front.webp'
+import shopPanel from '../../assets/gallery/shop-panel.webp'
+import shopDesk from '../../assets/gallery/shop-desk.webp'
 
 type Photo = { src: string; alt: string }
 
@@ -57,7 +57,7 @@ export default function Gallery() {
               onClick={() => setActive(i)}
               className="doc-frame group relative rounded-xl overflow-hidden shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brass"
             >
-              <img
+              <img loading="lazy" decoding="async"
                 src={photo.src}
                 alt={photo.alt}
                 className="w-full h-64 object-cover transition duration-500 group-hover:scale-105"
@@ -84,7 +84,7 @@ export default function Gallery() {
           >
             <X size={28} />
           </button>
-          <img
+          <img loading="lazy" decoding="async"
             src={photos[active].src}
             alt={photos[active].alt}
             className="max-h-[85vh] max-w-full rounded-lg shadow-2xl"

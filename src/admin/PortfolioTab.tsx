@@ -83,7 +83,7 @@ export default function PortfolioTab() {
               <div key={p.id} className="border border-gray-200 rounded-lg overflow-hidden group relative">
                 <div className="aspect-video bg-gray-100 flex items-center justify-center">
                   {p.image_url ? (
-                    <img src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={p.image_url} alt={p.title} className="w-full h-full object-cover" />
                   ) : (
                     <ImageIcon className="text-gray-300" size={28} />
                   )}

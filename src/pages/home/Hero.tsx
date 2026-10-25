@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, MessageCircle, ArrowRight } from 'lucide-react'
 import StampBadge from '../../components/StampBadge'
-import shopFront from '../../assets/gallery/shop-front.jpg'
+import shopFront from '../../assets/gallery/shop-front.webp'
 
 const WHATSAPP_NUMBER = '8801968673241'
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase, ShopCustomerSummary, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
@@ -7,44 +7,47 @@ import {
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
   DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck, ShieldCheck, Calculator, Plane, Camera
 } from 'lucide-react'
-import OrdersTab from '../admin/OrdersTab'
-import TodayDashboard from '../admin/TodayDashboard'
-import MessageTemplatesTab from '../admin/MessageTemplatesTab'
-import ServicesTab from '../admin/ServicesTab'
-import StaffTab from '../admin/StaffTab'
-import CouponsTab from '../admin/CouponsTab'
-import PerformanceTab from '../admin/PerformanceTab'
-import MessagesTab from '../admin/MessagesTab'
-import GalleryTab from '../admin/GalleryTab'
-import ReviewsTab from '../admin/ReviewsTab'
-import CashBookTab from '../admin/CashBookTab'
-import DueCollectionTab from '../admin/DueCollectionTab'
 import GlobalSearch from '../admin/GlobalSearch'
 import { canViewTab } from '../lib/permissions'
-import TrainingTab from '../admin/training/TrainingTab'
-import ActivityTab from '../admin/ActivityTab'
-import QuotesTab from '../admin/pricing/QuotesTab'
-import TicketsTab from '../admin/tickets/TicketsTab'
-import PhotoTab from '../admin/photo/PhotoTab'
-import CustomerProfileModal from '../admin/CustomerProfileModal'
-import OrderDetailModal from '../admin/OrderDetailModal'
-import ReportsTab from '../admin/ReportsTab'
-import SettingsTab from '../admin/SettingsTab'
-import InventoryTab from '../admin/InventoryTab'
-import POSTab from '../admin/POSTab'
-import StaffProfileEditModal from '../admin/StaffProfileEditModal'
-import CouponFormModal from '../admin/CouponFormModal'
-import ServiceFormModal from '../admin/ServiceFormModal'
-import GalleryFormModal from '../admin/GalleryFormModal'
-import UsersTab from '../admin/UsersTab'
-import WebsiteTab from '../admin/WebsiteTab'
-import BlogTab from '../admin/BlogTab'
-import AIPromptsTab from '../admin/AIPromptsTab'
-import PortfolioTab from '../admin/PortfolioTab'
-import CustomerLedgerTab from '../admin/CustomerLedgerTab'
-import LeadsTab from '../admin/LeadsTab'
-import CoursesTab from '../admin/CoursesTab'
-import EnrollmentsTab from '../admin/EnrollmentsTab'
+
+// ট্যাব ও মডাল দরকার হলেই লোড হয়
+const OrdersTab = lazy(() => import('../admin/OrdersTab'))
+const TodayDashboard = lazy(() => import('../admin/TodayDashboard'))
+const MessageTemplatesTab = lazy(() => import('../admin/MessageTemplatesTab'))
+const ServicesTab = lazy(() => import('../admin/ServicesTab'))
+const StaffTab = lazy(() => import('../admin/StaffTab'))
+const CouponsTab = lazy(() => import('../admin/CouponsTab'))
+const PerformanceTab = lazy(() => import('../admin/PerformanceTab'))
+const MessagesTab = lazy(() => import('../admin/MessagesTab'))
+const GalleryTab = lazy(() => import('../admin/GalleryTab'))
+const ReviewsTab = lazy(() => import('../admin/ReviewsTab'))
+const CashBookTab = lazy(() => import('../admin/CashBookTab'))
+const DueCollectionTab = lazy(() => import('../admin/DueCollectionTab'))
+const TrainingTab = lazy(() => import('../admin/training/TrainingTab'))
+const ActivityTab = lazy(() => import('../admin/ActivityTab'))
+const QuotesTab = lazy(() => import('../admin/pricing/QuotesTab'))
+const TicketsTab = lazy(() => import('../admin/tickets/TicketsTab'))
+const PhotoTab = lazy(() => import('../admin/photo/PhotoTab'))
+const CustomerProfileModal = lazy(() => import('../admin/CustomerProfileModal'))
+const OrderDetailModal = lazy(() => import('../admin/OrderDetailModal'))
+const ReportsTab = lazy(() => import('../admin/ReportsTab'))
+const SettingsTab = lazy(() => import('../admin/SettingsTab'))
+const InventoryTab = lazy(() => import('../admin/InventoryTab'))
+const POSTab = lazy(() => import('../admin/POSTab'))
+const StaffProfileEditModal = lazy(() => import('../admin/StaffProfileEditModal'))
+const CouponFormModal = lazy(() => import('../admin/CouponFormModal'))
+const ServiceFormModal = lazy(() => import('../admin/ServiceFormModal'))
+const GalleryFormModal = lazy(() => import('../admin/GalleryFormModal'))
+const UsersTab = lazy(() => import('../admin/UsersTab'))
+const WebsiteTab = lazy(() => import('../admin/WebsiteTab'))
+const BlogTab = lazy(() => import('../admin/BlogTab'))
+const AIPromptsTab = lazy(() => import('../admin/AIPromptsTab'))
+const PortfolioTab = lazy(() => import('../admin/PortfolioTab'))
+const CustomerLedgerTab = lazy(() => import('../admin/CustomerLedgerTab'))
+const LeadsTab = lazy(() => import('../admin/LeadsTab'))
+const CoursesTab = lazy(() => import('../admin/CoursesTab'))
+const EnrollmentsTab = lazy(() => import('../admin/EnrollmentsTab'))
+import PageLoader from '../components/PageLoader'
 
 type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training' | 'activity' | 'quotes' | 'tickets' | 'photo'
 
@@ -806,10 +809,12 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
         </div>
       </header>
 
+      <Suspense fallback={null}>
       {searchCustomer && (
         <CustomerProfileModal customer={searchCustomer} onClose={() => setSearchCustomer(null)} onChanged={() => setSearchCustomer(null)} />
       )}
       {searchOrder && <OrderDetailModal order={searchOrder} getServiceName={getServiceName} onClose={() => setSearchOrder(null)} />}
+      </Suspense>
 
       {/* সাইডবার */}
       <aside
@@ -848,6 +853,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
 
       {/* মূল কন্টেন্ট */}
       <main className={`pt-20 md:pt-20 transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-0'}`}>
+        <Suspense fallback={<PageLoader />}>
         <div className="p-4 md:p-8 max-w-7xl">
           {/* স্ট্যাটস কার্ড */}
           {activeTab === 'orders' && (
@@ -913,9 +919,11 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'training' && <TrainingTab />}
           {activeTab === 'activity' && <ActivityTab />}
         </div>
+        </Suspense>
       </main>
 
       {/* মডালগুলো */}
+      <Suspense fallback={null}>
       {editingProfile && (
         <StaffProfileEditModal
           profile={editingProfile}
@@ -960,6 +968,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           onSaved={fetchGalleryPhotos}
         />
       )}
+      </Suspense>
     </div>
   )
 }

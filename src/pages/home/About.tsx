@@ -1,12 +1,12 @@
 import { Landmark, Printer, Sparkles } from 'lucide-react'
-import shopPanel from '../../assets/gallery/shop-panel.jpg'
+import shopPanel from '../../assets/gallery/shop-panel.webp'
 
 export default function About() {
   return (
     <section className="py-20 px-4 bg-paper">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
         <div className="doc-frame rounded-xl overflow-hidden shadow-lg">
-          <img
+          <img loading="lazy" decoding="async"
             src={shopPanel}
             alt="নিউ প্রিন্টার্স দোকানের সার্ভিস প্যানেল"
             className="w-full h-full object-cover"

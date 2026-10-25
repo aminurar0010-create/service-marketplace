@@ -52,7 +52,7 @@ export default function Blog() {
               >
                 {post.cover_image_url && (
                   <div className="aspect-video bg-ink-50 overflow-hidden">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={post.cover_image_url}
                       alt={post.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"

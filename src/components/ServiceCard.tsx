@@ -12,7 +12,7 @@ export default function ServiceCard({ service }: { service: Service }) {
     >
       <div className="aspect-square sm:aspect-[4/3] overflow-hidden">
         {service.image_url ? (
-          <img
+          <img loading="lazy" decoding="async"
             src={service.image_url}
             alt={service.name}
             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"

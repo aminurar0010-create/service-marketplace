@@ -105,7 +105,7 @@ export default function ServicesTab({ ctx }: { ctx: any }) {
                         <td className="px-6 py-4">
                           <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                             {s.image_url ? (
-                              <img src={s.image_url} alt={s.name} className="w-full h-full object-cover" />
+                              <img loading="lazy" decoding="async" src={s.image_url} alt={s.name} className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-gray-300 text-xs">—</span>
                             )}

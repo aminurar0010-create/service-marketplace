@@ -54,7 +54,7 @@ export default function Portfolio() {
               >
                 <div className="aspect-video bg-ink-50 overflow-hidden">
                   {p.image_url ? (
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={p.image_url}
                       alt={p.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"

@@ -10,7 +10,7 @@ export default function CourseCard({ course }: { course: Course }) {
     >
       <div className="aspect-[16/9] overflow-hidden">
         {course.cover_image_url ? (
-          <img
+          <img loading="lazy" decoding="async"
             src={course.cover_image_url}
             alt={course.title}
             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"

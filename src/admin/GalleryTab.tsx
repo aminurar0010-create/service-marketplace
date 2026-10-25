@@ -45,7 +45,7 @@ export default function GalleryTab({ ctx }: { ctx: any }) {
                 className="border border-gray-200 rounded-lg overflow-hidden group relative"
               >
                 <div className="aspect-video bg-gray-100">
-                  <img src={p.image_url} alt={p.alt_text || ''} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={p.image_url} alt={p.alt_text || ''} className="w-full h-full object-cover" />
                 </div>
                 <div className="p-3">
                   <p className="text-sm text-gray-700 truncate">{p.alt_text || 'কোনো বর্ণনা নেই'}</p>
