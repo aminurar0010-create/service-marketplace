@@ -151,6 +151,8 @@ export interface Order {
   deadline_at?: string | null
   assigned_staff_id?: string
   internal_note?: string | null
+  paid_amount?: number
+  credit_sale?: boolean
   customer_id?: string | null
   service_name?: string
   service_category?: string
@@ -641,4 +643,19 @@ export interface StudentPayment {
   payment_date: string
   note: string | null
   created_at: string
+}
+
+/** order_dues ভিউ — বাকিতে দেওয়া/আংশিক-পরিশোধিত অর্ডার */
+export interface OrderDue {
+  order_id: string
+  tracking_id: string
+  customer_name: string
+  customer_phone: string
+  shop_customer_id: string | null
+  status: string
+  created_at: string
+  total_amount: number
+  paid_amount: number
+  due_amount: number
+  last_payment_at: string | null
 }

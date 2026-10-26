@@ -80,7 +80,12 @@ export default function OrderDetailModal({
     filled = fillPlaceholder(filled, '{customer_name}', order.customer_name || '')
     filled = fillPlaceholder(filled, '{tracking_id}', order.tracking_id || '')
     filled = fillPlaceholder(filled, '{service_name}', getServiceName(order.service_id))
-    filled = fillPlaceholder(filled, '{amount}', String(order.total_amount ?? ''))
+    // "পেমেন্ট বাকি" মেসেজে আংশিক পেমেন্ট হলে মোট নয়, ঠিক বাকি টাকাটাই যায়
+    const dueForMessage =
+      order.payment_status === 'unpaid' && Number(order.paid_amount) > 0
+        ? Math.max(Number(order.total_amount) - Number(order.paid_amount), 0)
+        : order.total_amount
+    filled = fillPlaceholder(filled, '{amount}', String(dueForMessage ?? ''))
     filled = fillPlaceholder(filled, '{missing_docs}', missingLabels || 'কোনো তথ্য বাকি নেই')
 
     setMessageText(filled)
@@ -228,6 +233,11 @@ export default function OrderDetailModal({
             <div>
               <p className="text-xs text-gray-500">মোট পরিমাণ</p>
               <p className="font-semibold">৳{order.total_amount}</p>
+              {order.payment_status === 'unpaid' && Number(order.paid_amount) > 0 && (
+                <p className="text-xs text-amber-700">
+                  পেয়েছি ৳{order.paid_amount} • বাকি ৳{Math.max(Number(order.total_amount) - Number(order.paid_amount), 0)}
+                </p>
+              )}
             </div>
           </div>
 

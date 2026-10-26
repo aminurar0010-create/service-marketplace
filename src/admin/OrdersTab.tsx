@@ -394,6 +394,11 @@ export default function OrdersTab({ ctx }: { ctx: any }) {
                               <option value="paid">পরিশোধিত</option>
                               <option value="refunded">ফেরত</option>
                             </select>
+                            {order.payment_status === 'unpaid' && Number(order.paid_amount) > 0 && (
+                              <p className="text-xs text-amber-700 mt-1">
+                                পেয়েছি ৳{order.paid_amount} • বাকি ৳{Math.max(Number(order.total_amount) - Number(order.paid_amount), 0)}
+                              </p>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>

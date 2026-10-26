@@ -111,7 +111,13 @@ with expected(file, kind, name, col) as (values
   ('phaseJ_tickets_migration','function','submit_ticket_request',''),
   ('phaseK_ai_migration','table','ai_usage',''),
   ('phaseK_ai_migration','function','ai_usage_today',''),
-  ('phaseK_ai_migration','function','ai_use_quota','')
+  ('phaseK_ai_migration','function','ai_use_quota',''),
+  ('phase3ka_order_payments_migration','table','order_payments',''),
+  ('phase3ka_order_payments_migration','table','order_dues',''),
+  ('phase3ka_order_payments_migration','function','record_order_payment',''),
+  ('phase3ka_order_payments_migration','column','orders','paid_amount'),
+  ('phase3ka_order_payments_migration','column','orders','credit_sale'),
+  ('phase3ka_order_payments_migration','column','orders','internal_note')
 ),
 missing as (
   select file, kind, name, col from expected e

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Banknote, Search, X, History } from 'lucide-react'
-import { supabase, logActivity, CustomerDue, DueCollectionRow } from '../lib/supabase'
+import { supabase, logActivity, CustomerDue, DueCollectionRow, OrderDue } from '../lib/supabase'
 import { PAY_METHODS, PayMethod, payMethodLabel } from './pos/posTypes'
 
 const taka = (n: number) => '৳' + Number(n || 0).toLocaleString('bn-BD')
@@ -10,6 +10,8 @@ const taka = (n: number) => '৳' + Number(n || 0).toLocaleString('bn-BD')
 export default function DueCollectionTab() {
   const [dues, setDues] = useState<CustomerDue[]>([])
   const [history, setHistory] = useState<DueCollectionRow[]>([])
+  const [orderDues, setOrderDues] = useState<OrderDue[]>([])
+  const [orderTarget, setOrderTarget] = useState<OrderDue | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [target, setTarget] = useState<CustomerDue | null>(null)
@@ -20,7 +22,7 @@ export default function DueCollectionTab() {
 
   const load = async () => {
     setLoading(true)
-    const [d, h] = await Promise.all([
+    const [d, h, od] = await Promise.all([
       supabase.from('customer_dues').select('*').order('oldest_due_at', { ascending: true }),
       supabase
         .from('sale_payments')
@@ -28,9 +30,12 @@ export default function DueCollectionTab() {
         .eq('kind', 'due_collection')
         .order('created_at', { ascending: false })
         .limit(50),
+      supabase.from('order_dues').select('*').order('created_at', { ascending: true }),
     ])
     if (d.error) console.error('বকেয়া লোড ত্রুটি:', d.error)
     if (h.error) console.error('আদায়ের ইতিহাস লোড ত্রুটি:', h.error)
+    if (od.error) console.error('অর্ডারের বাকি লোড ত্রুটি:', od.error)
+    setOrderDues((od.data as OrderDue[]) || [])
     setDues((d.data as CustomerDue[]) || [])
     setHistory((h.data as unknown as DueCollectionRow[]) || [])
     setLoading(false)
@@ -50,7 +55,17 @@ export default function DueCollectionTab() {
 
   const totalDue = dues.reduce((s, c) => s + Number(c.total_due), 0)
 
+  const filteredOrders = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return orderDues
+    return orderDues.filter(
+      (o) => o.customer_name.toLowerCase().includes(q) || o.customer_phone.includes(q) || o.tracking_id.toLowerCase().includes(q)
+    )
+  }, [orderDues, search])
+  const totalOrderDue = orderDues.reduce((s, o) => s + Number(o.due_amount), 0)
+
   const openCollect = (c: CustomerDue) => {
+    setOrderTarget(null)
     setTarget(c)
     setAmount(String(c.total_due))
     setMethod('cash')
@@ -82,9 +97,42 @@ export default function DueCollectionTab() {
     load()
   }
 
+  const openOrderCollect = (o: OrderDue) => {
+    setTarget(null)
+    setOrderTarget(o)
+    setAmount(String(o.due_amount))
+    setMethod('cash')
+    setError('')
+  }
+
+  const submitOrder = async () => {
+    if (!orderTarget) return
+    const value = Number(amount)
+    if (!value || value <= 0) {
+      setError('টাকার পরিমাণ সঠিকভাবে দিন')
+      return
+    }
+    setSaving(true)
+    setError('')
+    const { data, error: rpcError } = await supabase.rpc('record_order_payment', {
+      p_tracking_id: orderTarget.tracking_id,
+      p_amount: value,
+      p_method: method,
+    })
+    setSaving(false)
+    if (rpcError || !data?.success) {
+      setError(data?.message || 'টাকা নিতে সমস্যা হয়েছে')
+      if (rpcError) console.error('অর্ডারের বাকি আদায় ত্রুটি:', rpcError)
+      return
+    }
+    logActivity('অর্ডারের বাকি আদায় করা হয়েছে', 'order', orderTarget.tracking_id, { amount: value, method })
+    setOrderTarget(null)
+    load()
+  }
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-500 text-sm font-semibold">মোট বকেয়া</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{taka(totalDue)}</p>
@@ -92,6 +140,11 @@ export default function DueCollectionTab() {
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-500 text-sm font-semibold">বকেয়া আছে এমন কাস্টমার</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{dues.length} জন</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-500 text-sm font-semibold">অর্ডারের বাকি</p>
+          <p className="text-2xl font-bold text-red-600 mt-1">{taka(totalOrderDue)}</p>
+          <p className="text-xs text-gray-500">{orderDues.length}টি অর্ডার</p>
         </div>
       </div>
 
@@ -159,6 +212,60 @@ export default function DueCollectionTab() {
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200 flex items-center gap-3">
+          <Banknote className="text-indigo-600" size={20} />
+          <h3 className="font-bold">অর্ডারের বাকি</h3>
+          <span className="text-xs text-gray-500">কুইক অর্ডারে "বাকি রাখব / কিছু পেয়েছি" দিলে এখানে আসে</span>
+        </div>
+        {loading ? (
+          <div className="p-8 text-center text-gray-600 text-sm">লোড করছি...</div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 text-sm">অর্ডারের কোনো বাকি নেই 🎉</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">কাস্টমার</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অর্ডার</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">মোট / পেয়েছি</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">বাকি</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">অ্যাকশন</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((o) => (
+                  <tr key={o.order_id} className="border-b border-gray-100">
+                    <td className="px-6 py-3 text-sm">
+                      <p className="font-semibold">{o.customer_name}</p>
+                      <p className="text-xs text-gray-500">{o.customer_phone}</p>
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-600">
+                      <p className="font-mono text-xs">{o.tracking_id}</p>
+                      <p className="text-xs text-gray-500">{format(new Date(o.created_at), 'dd/MM/yyyy')}</p>
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-600">
+                      {taka(o.total_amount)}
+                      <span className="block text-xs text-green-600">পেয়েছি {taka(o.paid_amount)}</span>
+                    </td>
+                    <td className="px-6 py-3 text-sm font-bold text-red-600">{taka(o.due_amount)}</td>
+                    <td className="px-6 py-3">
+                      <button
+                        onClick={() => openOrderCollect(o)}
+                        className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition"
+                      >
+                        টাকা নিন
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b border-gray-200 flex items-center gap-3">
           <History className="text-indigo-600" size={20} />
           <h3 className="font-bold">সাম্প্রতিক আদায় (শেষ ৫০টি)</h3>
         </div>
@@ -182,6 +289,62 @@ export default function DueCollectionTab() {
           </div>
         )}
       </div>
+
+      {orderTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold text-lg">{orderTarget.customer_name}</h3>
+                <p className="text-sm text-gray-500">
+                  {orderTarget.customer_phone} • <span className="font-mono">{orderTarget.tracking_id}</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  মোট {taka(orderTarget.total_amount)} • পেয়েছি {taka(orderTarget.paid_amount)} • বাকি{' '}
+                  <span className="font-semibold text-red-600">{taka(orderTarget.due_amount)}</span>
+                </p>
+              </div>
+              <button onClick={() => setOrderTarget(null)} className="p-1 text-gray-500 hover:bg-gray-100 rounded">
+                <X size={18} />
+              </button>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-gray-700">এখন কত টাকা নিচ্ছেন (৳)</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">পুরোটা নিলে অর্ডার "পরিশোধিত" হয়ে যাবে; কম নিলে বাকিটা থেকে যাবে।</p>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-gray-700">পেমেন্ট মেথড</label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {PAY_METHODS.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setMethod(m.id)}
+                    className={`px-3 py-1.5 rounded text-sm border transition ${
+                      method === m.id ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <button
+              onClick={submitOrder}
+              disabled={saving}
+              className="w-full py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {saving ? 'সেভ হচ্ছে...' : 'টাকা নেওয়া নিশ্চিত করুন'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {target && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

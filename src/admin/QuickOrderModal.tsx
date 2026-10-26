@@ -15,7 +15,11 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
   const [pickedCustomer, setPickedCustomer] = useState<ShopCustomer | null>(null)
   const [price, setPrice] = useState<number | ''>('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [paymentReceived, setPaymentReceived] = useState(false)
+  // পেমেন্ট: 'full' = পুরো পেয়েছি, 'partial' = কিছু পেয়েছি, 'due' = এখনো কিছু পাইনি (বাকি)
+  const [payMode, setPayMode] = useState<'full' | 'partial' | 'due'>('due')
+  const [paidNow, setPaidNow] = useState<number | ''>('')
+  const [warning, setWarning] = useState('')
+  const [summary, setSummary] = useState<{ paid: number; due: number } | null>(null)
   const [assignedStaffId, setAssignedStaffId] = useState('')
   const [priority, setPriority] = useState('normal')
   const [note, setNote] = useState('')
@@ -50,7 +54,16 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
       return
     }
 
+    if (payMode === 'partial') {
+      const amt = Number(paidNow)
+      if (!(amt > 0) || amt >= Number(price)) {
+        setError('আংশিক পেমেন্টে টাকার পরিমাণ ০-র বেশি এবং মূল্যের কম হতে হবে')
+        return
+      }
+    }
+
     setLoading(true)
+    setWarning('')
     try {
       let finalServiceId = serviceId
 
@@ -94,14 +107,41 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
       }
 
       const trackingId = result.tracking_id as string
+      // জরুরি ফি থাকলে চূড়ান্ত মোট মূল্যের চেয়ে আলাদা হতে পারে — সার্ভারের হিসাবই ধরা হয়
+      const finalTotal = Number(result.final_amount ?? price)
 
-      // কুইক অর্ডারের বাড়তি তথ্য (প্রায়োরিটি, স্টাফ, নোট, পেমেন্ট) আলাদাভাবে সেভ করুন
+      // কুইক অর্ডারের বাড়তি তথ্য (প্রায়োরিটি, স্টাফ, নোট, বাকি-চিহ্ন) আলাদাভাবে সেভ করুন
+      const toPay = payMode === 'full' ? finalTotal : payMode === 'partial' ? Math.min(Number(paidNow), finalTotal) : 0
       const updatePayload: Record<string, any> = { priority }
       if (assignedStaffId) updatePayload.assigned_staff_id = assignedStaffId
       if (note.trim()) updatePayload.internal_note = note.trim()
-      if (paymentReceived) updatePayload.payment_status = 'paid'
+      if (toPay < finalTotal) updatePayload.credit_sale = true // বাকিতে দেওয়া — "বাকি আদায়"-এ দেখা যাবে
 
-      await supabase.from('orders').update(updatePayload).eq('tracking_id', trackingId)
+      const warnings: string[] = []
+      const { error: updateError } = await supabase.from('orders').update(updatePayload).eq('tracking_id', trackingId)
+      if (updateError) {
+        console.error('কুইক অর্ডারের বাড়তি তথ্য সেভ ত্রুটি:', updateError)
+        warnings.push('প্রায়োরিটি/স্টাফ/নোট/বাকি-চিহ্ন সেভ হয়নি — অর্ডারের বিস্তারিত থেকে আবার দিন।')
+      }
+
+      // পাওয়া টাকা সার্ভার-ফাংশনে (ক্যাশ-বুকসহ) — মাধ্যম ক্যাশ-বুকের তালিকার বাইরে (যেমন কিউআর) হলে "অন্যান্য"
+      let paidSoFar = 0
+      if (toPay > 0) {
+        const recMethod = ['cash', 'bkash', 'nagad', 'rocket'].includes(paymentMethod) ? paymentMethod : 'other'
+        const { data: payRes, error: payError } = await supabase.rpc('record_order_payment', {
+          p_tracking_id: trackingId,
+          p_amount: toPay,
+          p_method: recMethod,
+        })
+        if (payError || !payRes?.success) {
+          console.error('কুইক অর্ডারের পেমেন্ট সেভ ত্রুটি:', payError || payRes)
+          warnings.push(`পেমেন্ট সেভ হয়নি${payRes?.message ? ` (${payRes.message})` : ''} — "বাকি আদায়" বা অর্ডার থেকে টাকা নিন।`)
+        } else {
+          paidSoFar = toPay
+        }
+      }
+      setSummary({ paid: paidSoFar, due: Math.max(finalTotal - paidSoFar, 0) })
+      if (warnings.length) setWarning(warnings.join(' '))
 
       logActivity?.('কুইক অর্ডার তৈরি করেছেন', 'order', trackingId, {
         customer: customerName.trim(),
@@ -127,7 +167,19 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
           </div>
           <h2 className="text-lg font-bold mb-1">অর্ডার তৈরি হয়েছে!</h2>
           <p className="text-sm text-gray-500 mb-4">ট্র্যাকিং আইডি</p>
-          <p className="text-xl font-mono font-bold text-indigo-600 mb-6">{successTrackingId}</p>
+          <p className="text-xl font-mono font-bold text-indigo-600 mb-3">{successTrackingId}</p>
+          {summary && (
+            <p className="text-sm mb-3">
+              পেয়েছেন <span className="font-bold text-green-600">৳{summary.paid}</span>
+              {summary.due > 0 && (
+                <>
+                  {' '}• বাকি <span className="font-bold text-red-600">৳{summary.due}</span>
+                </>
+              )}
+            </p>
+          )}
+          {warning && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-3 text-left">{warning}</p>}
+          <div className="mb-3" />
           <div className="flex gap-2">
             <button
               onClick={() => {
@@ -141,7 +193,10 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
                 setAssignedStaffId('')
                 setPriority('normal')
                 setNote('')
-                setPaymentReceived(false)
+                setPayMode('due')
+                setPaidNow('')
+                setSummary(null)
+                setWarning('')
               }}
               className="flex-1 border border-gray-300 rounded-lg py-2 font-semibold hover:bg-gray-50"
             >
@@ -265,15 +320,49 @@ export default function QuickOrderModal({ ctx, onClose }: { ctx: any; onClose: (
             </div>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={paymentReceived}
-              onChange={(e) => setPaymentReceived(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span className="text-sm font-semibold">পেমেন্ট এখনই গ্রহণ করা হয়েছে</span>
-          </label>
+          <div>
+            <label className="block text-sm font-semibold mb-1">এখন কত টাকা পেলেন?</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ['full', 'পুরো পেয়েছি'],
+                ['partial', 'কিছু পেয়েছি'],
+                ['due', 'বাকি রাখব'],
+              ] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPayMode(mode)}
+                  className={`px-2 py-2 rounded-lg text-sm font-semibold border transition ${
+                    payMode === mode
+                      ? mode === 'due'
+                        ? 'bg-red-50 border-red-400 text-red-700'
+                        : 'bg-green-50 border-green-500 text-green-700'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {payMode === 'partial' && (
+              <div className="mt-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={paidNow}
+                  onChange={(e) => setPaidNow(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="এখন যত টাকা পেলেন (৳)"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
+                />
+                {price !== '' && Number(paidNow) > 0 && Number(paidNow) < Number(price) && (
+                  <p className="text-xs text-red-600 mt-1">বাকি থাকবে ৳{Number(price) - Number(paidNow)}</p>
+                )}
+              </div>
+            )}
+            {payMode === 'full' && price !== '' && <p className="text-xs text-green-700 mt-1">৳{price} পেয়েছেন — ক্যাশ-বুকে উঠবে।</p>}
+            {payMode === 'due' && <p className="text-xs text-gray-500 mt-1">কিছু পাননি — পুরোটা "বাকি আদায়"-এ জমা থাকবে।</p>}
+            {payMode !== 'due' && <p className="text-xs text-gray-400 mt-1">টাকা পাওয়ার মাধ্যম = উপরের "পেমেন্ট মেথড"।</p>}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
