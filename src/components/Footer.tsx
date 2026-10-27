@@ -23,8 +23,11 @@ export default function Footer() {
           <h3 className="font-display font-semibold text-white mb-4">কুইক লিংক</h3>
           <ul className="space-y-2 text-sm">
             <li><Link to="/" className="hover:text-brass-light transition">হোম</Link></li>
+            <li><Link to="/#services" className="hover:text-brass-light transition">সেবা</Link></li>
             <li><Link to="/order" className="hover:text-brass-light transition">অর্ডার করুন</Link></li>
             <li><Link to="/tracking" className="hover:text-brass-light transition">ট্র্যাক করুন</Link></li>
+            <li><Link to="/tickets" className="hover:text-brass-light transition">টিকিট</Link></li>
+            <li><Link to="/courses" className="hover:text-brass-light transition">ট্রেনিং</Link></li>
             <li><Link to="/blog" className="hover:text-brass-light transition">ব্লগ</Link></li>
             <li><Link to="/prompts" className="hover:text-brass-light transition">AI প্রম্পট লাইব্রেরি</Link></li>
             <li><Link to="/account/login" className="hover:text-brass-light transition">আমার অ্যাকাউন্ট</Link></li>
@@ -32,7 +35,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        <div>
+        <div id="contact" className="scroll-mt-20">
           <h3 className="font-display font-semibold text-white mb-4">যোগাযোগ</h3>
           <ul className="space-y-3 text-sm">
             <li className="flex items-center gap-2">

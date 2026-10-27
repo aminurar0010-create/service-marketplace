@@ -1,13 +1,29 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { LogOut, Menu, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+
+// ফেজ ৪-ক: মূল মেনু ৬টি; ব্লগ ও AI প্রম্পট "আরও"-তে (পেজ ও রুট অপরিবর্তিত)
+const MAIN_LINKS = [
+  { to: '/#services', label: 'সেবা' },
+  { to: '/order', label: 'অর্ডার করুন' },
+  { to: '/tracking', label: 'ট্র্যাক করুন' },
+  { to: '/tickets', label: 'টিকিট' },
+  { to: '/courses', label: 'ট্রেনিং' },
+  { to: '/#contact', label: 'যোগাযোগ' },
+]
+const MORE_LINKS = [
+  { to: '/blog', label: 'ব্লগ' },
+  { to: '/prompts', label: 'AI প্রম্পট' },
+]
 
 export default function Navbar({ user, profile, customer }: { user: any; profile?: any; customer?: any }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
 
   // হোমপেজে হিরো সেকশনের ওপরে ন্যাভবার শুরুতে স্বচ্ছ থাকবে, স্ক্রল করলে গাঢ় সবুজ হয়ে যাবে
   const isHome = location.pathname === '/'
@@ -21,7 +37,25 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
 
   useEffect(() => {
     setMobileOpen(false)
-  }, [location.pathname])
+    setMoreOpen(false)
+  }, [location.pathname, location.hash])
+
+  // "আরও" ড্রপডাউন: বাইরে ক্লিক বা Esc চাপলে বন্ধ
+  useEffect(() => {
+    if (!moreOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [moreOpen])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -52,28 +86,33 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
             <span className={transparent ? 'text-white' : 'text-white'}>নিউ প্রিন্টার্স</span>
           </Link>
 
-          <div className="hidden md:flex gap-8 items-center">
-            <Link to="/" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              হোম
-            </Link>
-            <Link to="/order" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              অর্ডার করুন
-            </Link>
-            <Link to="/tracking" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              ট্র্যাক করুন
-            </Link>
-            <Link to="/courses" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              কোর্স
-            </Link>
-            <Link to="/tickets" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              টিকিট
-            </Link>
-            <Link to="/blog" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              ব্লগ
-            </Link>
-            <Link to="/prompts" className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}>
-              AI প্রম্পট
-            </Link>
+          <div className="hidden md:flex gap-5 lg:gap-7 items-center text-[15px]">
+            {MAIN_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className={`${transparent ? linkTone : 'text-white/90 hover:text-white'} transition whitespace-nowrap`}>
+                {l.label}
+              </Link>
+            ))}
+            <div className="relative" ref={moreRef}>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-haspopup="true"
+                aria-expanded={moreOpen}
+                className={`flex items-center gap-1 ${transparent ? linkTone : 'text-white/90 hover:text-white'} transition`}
+              >
+                আরও
+                <ChevronDown size={15} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {moreOpen && (
+                <div className="absolute right-0 mt-3 w-40 bg-ink-600 rounded-lg shadow-xl border border-white/10 py-1 z-50">
+                  {MORE_LINKS.map((l) => (
+                    <Link key={l.to} to={l.to} className="block px-4 py-2 text-white/90 hover:text-white hover:bg-white/10 transition">
+                      {l.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {isStaffOrAdmin ? (
               <>
@@ -122,27 +161,19 @@ export default function Navbar({ user, profile, customer }: { user: any; profile
 
         {mobileOpen && (
           <div className="md:hidden pb-4 space-y-1 bg-ink-600 -mx-4 px-4 rounded-b-xl">
-            <Link to="/" className="block text-white/90 hover:text-white py-2">
-              হোম
-            </Link>
-            <Link to="/order" className="block text-white/90 hover:text-white py-2">
-              অর্ডার করুন
-            </Link>
-            <Link to="/tracking" className="block text-white/90 hover:text-white py-2">
-              ট্র্যাক করুন
-            </Link>
-            <Link to="/courses" className="block text-white/90 hover:text-white py-2">
-              কোর্স
-            </Link>
-            <Link to="/tickets" className="block text-white/90 hover:text-white py-2">
-              টিকিট
-            </Link>
-            <Link to="/blog" className="block text-white/90 hover:text-white py-2">
-              ব্লগ
-            </Link>
-            <Link to="/prompts" className="block text-white/90 hover:text-white py-2">
-              AI প্রম্পট
-            </Link>
+            {MAIN_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className="block text-white/90 hover:text-white py-2.5">
+                {l.label}
+              </Link>
+            ))}
+            <div className="border-t border-white/10 pt-2 mt-1">
+              <p className="text-xs text-white/50 py-1">আরও</p>
+              {MORE_LINKS.map((l) => (
+                <Link key={l.to} to={l.to} className="block text-white/80 hover:text-white py-2">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
             {isStaffOrAdmin ? (
               <>
                 <Link to={dashboardPath} className="block text-white/90 hover:text-white py-2">
