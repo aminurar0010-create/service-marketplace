@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, Profile, Customer } from './lib/supabase'
 import Navbar from './components/Navbar'
@@ -30,6 +30,12 @@ const Courses = lazy(() => import('./pages/Courses'))
 const TicketRequest = lazy(() => import('./pages/TicketRequest'))
 const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'))
 const ChatWidget = lazy(() => import('./components/ChatWidget'))
+
+/** অ্যাডমিন ড্যাশবোর্ডে সাইটের ব্যানার/নেভবার/ফুটার দেখানো হয় না — আগে নেভবার অ্যাডমিনের নিজের হেডার (সার্চ, বোতাম) ঢেকে রাখত */
+function PublicChrome({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return pathname.startsWith('/admin/dashboard') ? null : <>{children}</>
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -95,8 +101,10 @@ export default function App() {
       <div className="min-h-screen bg-paper">
         <ScrollToHash />
         <Analytics />
-        <SiteBanner />
-        <Navbar user={user} profile={profile} customer={customer} />
+        <PublicChrome>
+          <SiteBanner />
+          <Navbar user={user} profile={profile} customer={customer} />
+        </PublicChrome>
         <Suspense fallback={<PageLoader full />}>
         <Routes>
           {/* জনসাধারণের রুট */}
@@ -190,7 +198,9 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         </Suspense>
-        <Footer />
+        <PublicChrome>
+          <Footer />
+        </PublicChrome>
         <InstallPrompt />
         <Suspense fallback={null}>
           <ChatWidget />

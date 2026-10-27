@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, X, Send, Loader2, Paperclip } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 interface ChatMessage {
@@ -28,6 +29,8 @@ function fileToBase64(file: File): Promise<string> {
 // ফেজ ৫ — স্মার্ট চ্যাটবট: Gemini API-ভিত্তিক, Supabase Edge Function (chat-assistant) কল করে
 // এখন সাপোর্ট করে: টেক্সট প্রশ্ন, ডকুমেন্ট ছবি চেক (OCR), দাম হিসাব, এবং ফোন নম্বর দিলে CRM/পুরনো অর্ডার হিস্ট্রি
 export default function ChatWidget() {
+  // অ্যাডমিন প্যানেলে ফোনের নিচের বারের ওপরে থাকবে (বারের "আরও" বোতাম ঢেকে না যায়)
+  const onAdmin = useLocation().pathname.startsWith('/admin')
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
@@ -108,7 +111,7 @@ export default function ChatWidget() {
       {/* ফ্লোটিং চ্যাট বাটন */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-ink-700 text-white shadow-lg flex items-center justify-center hover:bg-ink-600 transition"
+        className={`fixed ${onAdmin ? 'bottom-20 md:bottom-4' : 'bottom-4'} right-4 z-50 w-14 h-14 rounded-full bg-ink-700 text-white shadow-lg flex items-center justify-center hover:bg-ink-600 transition`}
         aria-label="চ্যাট খুলুন"
       >
         {open ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
@@ -116,7 +119,7 @@ export default function ChatWidget() {
 
       {/* চ্যাট উইন্ডো */}
       {open && (
-        <div className="fixed bottom-20 right-4 z-50 w-[90vw] max-w-sm h-[70vh] max-h-[520px] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+        <div className={`fixed ${onAdmin ? 'bottom-36 md:bottom-20' : 'bottom-20'} right-4 z-50 w-[90vw] max-w-sm h-[70vh] max-h-[520px] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200`}>
           <div className="bg-ink-700 text-white px-4 py-3 flex items-center gap-2">
             <MessageCircle className="w-5 h-5" />
             <div>

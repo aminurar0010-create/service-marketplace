@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase, ShopCustomerSummary, Order, Service, Profile, Coupon, StaffPerformance, Message, GalleryPhoto, logActivity } from '../lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
 import { bn } from 'date-fns/locale'
 import { 
   Package, Layers, Users, Ticket, Award, MessageSquare, Image as GalleryIcon, Star, 
   Wallet, PieChart, Settings as SettingsIcon, Boxes, ShoppingCart, MoreVertical, TrendingUp,
-  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck, ShieldCheck, Calculator, Plane, Camera
+  DollarSign, Clock, Globe, Newspaper, Sparkles, UserCog, Briefcase, BookUser, GraduationCap, Banknote, ClipboardCheck, ShieldCheck, Calculator, Plane, Camera,
+  ChevronDown, ChevronRight, Zap, Menu as MenuIcon
 } from 'lucide-react'
 import GlobalSearch from '../admin/GlobalSearch'
 import { canViewTab } from '../lib/permissions'
@@ -47,9 +49,55 @@ const CustomerLedgerTab = lazy(() => import('../admin/CustomerLedgerTab'))
 const LeadsTab = lazy(() => import('../admin/LeadsTab'))
 const CoursesTab = lazy(() => import('../admin/CoursesTab'))
 const EnrollmentsTab = lazy(() => import('../admin/EnrollmentsTab'))
+const QuickOrderModal = lazy(() => import('../admin/QuickOrderModal'))
 import PageLoader from '../components/PageLoader'
 
 type Tab = 'today' | 'orders' | 'services' | 'staff' | 'coupons' | 'performance' | 'messages' | 'gallery' | 'reviews' | 'cashbook' | 'reports' | 'settings' | 'inventory' | 'pos' | 'users' | 'website' | 'blog' | 'prompts' | 'portfolio' | 'customer_ledger' | 'due_collection' | 'leads' | 'templates' | 'courses' | 'enrollments' | 'training' | 'activity' | 'quotes' | 'tickets' | 'photo'
+
+// ── মেনু সাজানো (ফেজ ৩) ──────────────────────────────────────────────
+// দৈনিক কাজ সবার উপরে; "সহজ মোড"-এ শুধু এটিই দেখায়, বাকিগুলো "সব মেনু দেখুন"-এ।
+type NavGroupId = 'daily' | 'service' | 'reports' | 'people' | 'website' | 'training' | 'system'
+
+const NAV_GROUPS: { id: NavGroupId; label: string; tabs: Tab[] }[] = [
+  { id: 'daily', label: 'দৈনিক কাজ', tabs: ['today', 'orders', 'pos', 'due_collection', 'cashbook', 'customer_ledger'] },
+  { id: 'service', label: 'সেবা ও দাম', tabs: ['quotes', 'tickets', 'photo', 'services', 'inventory', 'coupons'] },
+  { id: 'reports', label: 'হিসাব ও রিপোর্ট', tabs: ['reports', 'performance', 'activity'] },
+  { id: 'people', label: 'কাস্টমার ও মেসেজ', tabs: ['messages', 'reviews', 'leads'] },
+  { id: 'website', label: 'ওয়েবসাইট', tabs: ['website', 'blog', 'portfolio', 'gallery', 'prompts'] },
+  { id: 'training', label: 'ট্রেনিং', tabs: ['courses'] },
+  { id: 'system', label: 'সিস্টেম', tabs: ['staff', 'users', 'settings'] },
+]
+
+// একই বিষয়ের একাধিক ট্যাব মেনুতে একটি এন্ট্রি; ভেতরে ছোট ট্যাব-বার (ট্যাবের আইডি অপরিবর্তিত)
+const TAB_FAMILIES: Record<string, { label: string; tabs: { id: Tab; label: string }[] }> = {
+  messages: { label: 'মেসেজ', tabs: [{ id: 'messages', label: 'মেসেজ' }, { id: 'templates', label: 'মেসেজ টেমপ্লেট' }] },
+  courses: {
+    label: 'ট্রেনিং',
+    tabs: [
+      { id: 'courses', label: 'কোর্স' },
+      { id: 'enrollments', label: 'ভর্তি আবেদন' },
+      { id: 'training', label: 'শিক্ষার্থী ও ট্রেনিং' },
+    ],
+  },
+}
+
+// ফোনের নিচের বার: রোল অনুযায়ী ৪টি + "আরও"
+const MOBILE_BAR: Record<string, { id: Tab; label: string }[]> = {
+  admin: [
+    { id: 'today', label: 'আজ' },
+    { id: 'orders', label: 'অর্ডার' },
+    { id: 'pos', label: 'বিক্রি' },
+    { id: 'due_collection', label: 'বাকি' },
+  ],
+  counter_operator: [
+    { id: 'today', label: 'আজ' },
+    { id: 'orders', label: 'অর্ডার' },
+    { id: 'customer_ledger', label: 'খাতা' },
+    { id: 'cashbook', label: 'ক্যাশ' },
+  ],
+}
+
+const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth < 768
 
 interface NavItem {
   id: Tab
@@ -68,8 +116,14 @@ interface StatCard {
 }
 
 export default function AdminDashboardV2({ user, role }: { user: any; role?: string }) {
+  const navigate = useNavigate()
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    navigate('/')
+  }
   const [activeTab, setActiveTab] = useState<Tab>('today')
   const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (isMobileViewport()) return false // ফোনে সাইডবার কন্টেন্ট ঢেকে দেয় — শুরুতে বন্ধ
     try {
       const saved = localStorage.getItem('admin_sidebar_open')
       return saved === null ? true : saved === 'true'
@@ -77,15 +131,37 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
       return true
     }
   })
-  const [, setMobileMenuOpen] = useState(false)
+  const [navMode, setNavMode] = useState<'simple' | 'full'>(() => {
+    try {
+      return localStorage.getItem('admin_nav_mode') === 'full' ? 'full' : 'simple'
+    } catch {
+      return 'simple'
+    }
+  })
+  // অ্যাডমিনের পূর্ণ মোডে শুরুতে শুধু "দৈনিক কাজ" খোলা; কম ট্যাবের রোলে (কাউন্টার অপারেটর) সব গ্রুপ খোলা
+  const [openGroups, setOpenGroups] = useState<Set<NavGroupId>>(
+    () => new Set<NavGroupId>(role === 'admin' ? ['daily'] : NAV_GROUPS.map((g) => g.id))
+  )
+  const [quickOrderOpen, setQuickOrderOpen] = useState(false)
+
+  const changeNavMode = (mode: 'simple' | 'full') => {
+    setNavMode(mode)
+    try {
+      localStorage.setItem('admin_nav_mode', mode)
+    } catch {
+      // localStorage অনুপলব্ধ হলে নিরবে এড়িয়ে যান
+    }
+  }
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => {
       const next = !prev
-      try {
-        localStorage.setItem('admin_sidebar_open', String(next))
-      } catch {
-        // localStorage অনুপলব্ধ হলে নিরবে এড়িয়ে যান
+      if (!isMobileViewport()) {
+        try {
+          localStorage.setItem('admin_sidebar_open', String(next))
+        } catch {
+          // localStorage অনুপলব্ধ হলে নিরবে এড়িয়ে যান
+        }
       }
       return next
     })
@@ -730,7 +806,59 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
   ]
 
   // Permission ম্যাট্রিক্স (src/lib/permissions.ts) অনুযায়ী ট্যাব ফিল্টার
-  const visibleNavItems = navItems.filter((n) => canViewTab(role, n.id))
+  // মেনুর গ্রুপ/পরিবার — কোন এন্ট্রি এখন সক্রিয়, কোন গ্রুপে
+  const navHeadFor = (tab: Tab): Tab => {
+    const fam = Object.entries(TAB_FAMILIES).find(([, f]) => f.tabs.some((x) => x.id === tab))
+    return (fam ? fam[0] : tab) as Tab
+  }
+  const activeHead = navHeadFor(activeTab)
+  const activeGroupId = NAV_GROUPS.find((g) => g.tabs.includes(activeHead))?.id
+  const visibleGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.tabs
+      .filter((id) => canViewTab(role, id))
+      .map((id) => navItems.find((n) => n.id === id))
+      .filter((n): n is NavItem => !!n),
+  })).filter((g) => g.items.length > 0)
+  const totalNavCount = visibleGroups.reduce((n, g) => n + g.items.length, 0)
+  const canSimple = totalNavCount > 8 // কম ট্যাবের রোলে (যেমন কাউন্টার অপারেটর) সহজ মোডের দরকার নেই
+  const showFull = navMode === 'full' || !canSimple
+  const family = TAB_FAMILIES[activeHead]
+
+  const goTab = (id: Tab) => {
+    setActiveTab(id)
+    if (isMobileViewport()) setSidebarOpen(false) // ফোনে বেছে নেওয়ার পর মেনু বন্ধ
+  }
+
+  const renderNavButton = (item: NavItem) => {
+    const Icon = item.icon
+    const active = activeHead === item.id
+    const label = TAB_FAMILIES[item.id]?.label ?? item.label
+    return (
+      <button
+        key={item.id}
+        onClick={() => goTab(item.id)}
+        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all group ${
+          active
+            ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-200'
+            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+        }`}
+      >
+        <Icon size={20} className={active ? '' : 'group-hover:scale-110 transition'} />
+        <span className="flex-1 text-left font-medium text-sm">{label}</span>
+        {item.badge ? (
+          <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{item.badge}</span>
+        ) : null}
+      </button>
+    )
+  }
+
+  // সক্রিয় ট্যাবের গ্রুপটি পূর্ণ মোডে নিজে খুলে থাকে
+  useEffect(() => {
+    if (activeGroupId) {
+      setOpenGroups((prev) => (prev.has(activeGroupId) ? prev : new Set(prev).add(activeGroupId)))
+    }
+  }, [activeGroupId])
 
   useEffect(() => {
     if (!canViewTab(role, activeTab)) {
@@ -799,12 +927,33 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
             }}
           />
           
+          <div className="flex items-center gap-2 md:gap-3">
+            {canViewTab(role, 'pos') && (
+              <button
+                onClick={() => goTab('pos')}
+                title="নতুন বিক্রি (POS)"
+                className="flex items-center gap-1.5 bg-emerald-600 text-white text-sm font-semibold px-3 py-2 rounded-lg hover:bg-emerald-700 transition"
+              >
+                <ShoppingCart size={16} />
+                <span className="hidden sm:inline">নতুন বিক্রি</span>
+              </button>
+            )}
+            <button
+              onClick={() => setQuickOrderOpen(true)}
+              title="কুইক অর্ডার"
+              className="flex items-center gap-1.5 bg-amber-500 text-white text-sm font-semibold px-3 py-2 rounded-lg hover:bg-amber-600 transition"
+            >
+              <Zap size={16} />
+              <span className="hidden sm:inline">কুইক অর্ডার</span>
+            </button>
+          </div>
+
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{user.email}</p>
+            <div className="text-right hidden lg:block">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white max-w-[170px] truncate">{user.email}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">অ্যাডমিন</p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500"></div>
+            <div className="hidden sm:block w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500"></div>
           </div>
         </div>
       </header>
@@ -816,43 +965,100 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
       {searchOrder && <OrderDetailModal order={searchOrder} getServiceName={getServiceName} onClose={() => setSearchOrder(null)} />}
       </Suspense>
 
+      {/* ফোনে মেনু খোলা থাকলে বাইরে ট্যাপ করলে বন্ধ */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 top-16 bg-black/40 z-20" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+      )}
+
       {/* সাইডবার */}
       <aside
         className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 overflow-y-auto transition-all duration-300 z-30 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <nav className="p-4 space-y-2">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon
-            return (
+        <nav className="p-4 space-y-1 pb-24 md:pb-4">
+          {showFull ? (
+            <>
+              {canSimple && (
+                <button
+                  onClick={() => changeNavMode('simple')}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mb-2 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-700 dark:text-indigo-300 transition"
+                >
+                  ▴ সহজ মোডে ফিরুন
+                </button>
+              )}
+              {visibleGroups.map((g) => {
+                const open = openGroups.has(g.id)
+                return (
+                  <div key={g.id} className="pt-1">
+                    <button
+                      onClick={() =>
+                        setOpenGroups((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(g.id)) next.delete(g.id)
+                          else next.add(g.id)
+                          return next
+                        })
+                      }
+                      className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
+                    >
+                      {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      <span className="flex-1 text-left normal-case text-[13px]">{g.label}</span>
+                      <span className="text-[11px] font-medium text-gray-400">{g.items.length}</span>
+                    </button>
+                    {open && <div className="space-y-1">{g.items.map(renderNavButton)}</div>}
+                  </div>
+                )
+              })}
+            </>
+          ) : (
+            <>
+              {visibleGroups
+                .filter((g) => g.id === 'daily')
+                .map((g) => (
+                  <div key={g.id} className="space-y-1">
+                    {g.items.map(renderNavButton)}
+                  </div>
+                ))}
+              {/* সহজ মোডেও বর্তমানে খোলা ট্যাব যেন হারিয়ে না যায় */}
+              {activeGroupId &&
+                activeGroupId !== 'daily' &&
+                visibleGroups
+                  .filter((g) => g.id === activeGroupId)
+                  .map((g) => (
+                    <div key={g.id} className="pt-2 space-y-1">
+                      <p className="px-2 pt-1 text-[13px] font-bold text-gray-500 dark:text-gray-400">{g.label}</p>
+                      {g.items.map(renderNavButton)}
+                    </div>
+                  ))}
               <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id)
-                  setMobileMenuOpen(false)
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all group ${
-                  activeTab === item.id
-                    ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-200'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
-                }`}
+                onClick={() => changeNavMode('full')}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 mt-3 rounded-lg text-sm font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-50 dark:text-indigo-300 dark:border-slate-600 dark:hover:bg-slate-700 transition"
               >
-                <Icon size={20} className={activeTab === item.id ? '' : 'group-hover:scale-110 transition'} />
-                <span className="flex-1 text-left font-medium text-sm">{item.label}</span>
-                {item.badge ? (
-                  <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
-                    {item.badge}
-                  </span>
-                ) : null}
+                ▾ সব মেনু দেখুন ({totalNavCount})
               </button>
-            )
-          })}
+            </>
+          )}
+          {/* সাইটের নেভবার এখানে নেই — তাই সাইট দেখা ও লগআউট এখানে */}
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-slate-700 flex gap-2">
+            <Link
+              to="/"
+              className="flex-1 text-center text-xs font-semibold border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 rounded-lg py-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+            >
+              সাইট দেখুন ↗
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex-1 text-center text-xs font-semibold border border-red-200 text-red-600 rounded-lg py-2 hover:bg-red-50 transition"
+            >
+              লগআউট
+            </button>
+          </div>
         </nav>
       </aside>
 
       {/* মূল কন্টেন্ট */}
-      <main className={`pt-20 md:pt-20 transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-0'}`}>
+      <main className={`pt-20 md:pt-20 pb-20 md:pb-0 transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-0'}`}>
         <Suspense fallback={<PageLoader />}>
         <div className="p-4 md:p-8 max-w-7xl">
           {/* স্ট্যাটস কার্ড */}
@@ -884,6 +1090,27 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* একই বিষয়ের একাধিক ট্যাবের ছোট বার (যেমন ট্রেনিং: কোর্স / ভর্তি আবেদন / শিক্ষার্থী) */}
+          {family && (
+            <div className="mb-5 flex flex-wrap gap-2">
+              {family.tabs
+                .filter((x) => canViewTab(role, x.id))
+                .map((x) => (
+                  <button
+                    key={x.id}
+                    onClick={() => setActiveTab(x.id)}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition ${
+                      activeTab === x.id
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {x.label}
+                  </button>
+                ))}
             </div>
           )}
 
@@ -924,6 +1151,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
 
       {/* মডালগুলো */}
       <Suspense fallback={null}>
+      {quickOrderOpen && <QuickOrderModal ctx={ctx} onClose={() => setQuickOrderOpen(false)} />}
       {editingProfile && (
         <StaffProfileEditModal
           profile={editingProfile}
@@ -969,6 +1197,40 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
         />
       )}
       </Suspense>
+
+      {/* ফোনের নিচের বার */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex">
+          {(MOBILE_BAR[role ?? ''] || MOBILE_BAR.admin)
+            .filter((i) => canViewTab(role, i.id))
+            .map((i) => {
+              const Icon = navItems.find((n) => n.id === i.id)?.icon || Package
+              const active = activeHead === i.id
+              return (
+                <button
+                  key={i.id}
+                  onClick={() => goTab(i.id)}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition ${
+                    active ? 'text-indigo-600' : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  <Icon size={22} />
+                  {i.label}
+                </button>
+              )
+            })}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400"
+          >
+            <MenuIcon size={22} />
+            আরও
+          </button>
+        </div>
+      </nav>
     </div>
   )
 }

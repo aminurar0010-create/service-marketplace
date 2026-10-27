@@ -85,7 +85,11 @@ export default function TodayDashboard({ ctx, onGo, canUseAI }: { ctx: any; onGo
           const c = colorClasses[w.color]
           const Icon = w.icon
           return (
-            <div key={w.key} className={`border rounded-xl p-4 ${c.bg}`}>
+            <div
+              key={w.key}
+              onClick={onGo ? () => onGo('orders') : undefined}
+              className={`border rounded-xl p-4 ${c.bg} ${onGo ? 'cursor-pointer hover:shadow-md transition' : ''}`}
+            >
               <div className="flex items-center justify-between mb-1">
                 <Icon size={20} className={c.icon} />
                 <span className={`text-2xl font-bold ${c.text}`}>{w.count}</span>
