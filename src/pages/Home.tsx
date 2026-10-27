@@ -10,7 +10,7 @@ import Portfolio from './home/Portfolio'
 import WhyChooseUs from './home/WhyChooseUs'
 import Gallery from './home/Gallery'
 import Contact from './home/Contact'
-import ServiceCard from '../components/ServiceCard'
+import ServiceCatalog from '../components/ServiceCatalog'
 import { useSEO } from '../lib/useSEO'
 
 export default function Home() {
@@ -41,17 +41,6 @@ export default function Home() {
     }
   }
 
-  const groupedServices = services.reduce((groups: Record<string, Service[]>, service) => {
-    const category = service.category || 'অন্যান্য'
-    if (!groups[category]) {
-      groups[category] = []
-    }
-    groups[category].push(service)
-    return groups
-  }, {})
-
-  const categoryNames = Object.keys(groupedServices).sort()
-
   return (
     <div className="min-h-screen bg-paper">
       <Hero />
@@ -78,25 +67,7 @@ export default function Home() {
               <p className="text-charcoal/50 text-lg">কোনো সেবা পাওয়া যায়নি</p>
             </div>
           ) : (
-            <div className="space-y-12 sm:space-y-16">
-              {categoryNames.map((categoryName) => (
-                <div key={categoryName}>
-                  <div className="flex items-center gap-4 mb-5 sm:mb-8">
-                    <h3 className="text-xl sm:text-2xl font-bold text-charcoal">{categoryName}</h3>
-                    <div className="flex-1 h-px bg-sage"></div>
-                    <span className="text-sm text-charcoal/40">
-                      {groupedServices[categoryName].length} টি সেবা
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-8">
-                    {groupedServices[categoryName].map((service) => (
-                      <ServiceCard key={service.id} service={service} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ServiceCatalog services={services} />
           )}
         </div>
       </div>

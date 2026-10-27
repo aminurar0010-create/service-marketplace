@@ -20,6 +20,7 @@ export default function ServiceFormModal({
   const [otherCost, setOtherCost] = useState(service?.other_cost ?? 0)
   const [category, setCategory] = useState(service?.category || '')
   const [isActive, setIsActive] = useState(service?.is_active ?? true)
+  const [isPopular, setIsPopular] = useState(!!service?.is_popular)
 
   // সার্ভিসের ছবি সংক্রান্ত স্টেট
   const [imageUrl, setImageUrl] = useState(service?.image_url || '')
@@ -383,6 +384,8 @@ export default function ServiceFormModal({
         urgent_fee_value: urgentEnabled ? urgentFeeValue : null,
         urgent_delivery_hours: urgentEnabled ? urgentDeliveryHours : null,
         payment_bkash_number: bkashOnlyEnabled ? bkashNumber.trim() : null,
+        // কলামটি SQL রানের আগে নেই — তাই শুধু বদলালে পাঠানো হয়, যাতে আগের সেভ না ভাঙে
+        ...(isPopular !== !!service?.is_popular ? { is_popular: isPopular } : {}),
       }
 
       let serviceId = service?.id
@@ -685,6 +688,18 @@ export default function ServiceFormModal({
                 className="w-4 h-4"
               />
               <span className="font-semibold">সার্ভিসটি সক্রিয় রাখুন (গ্রাহক দেখতে পাবে)</span>
+            </label>
+          </div>
+
+          <div className="col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPopular}
+                onChange={(e) => setIsPopular(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="font-semibold">জনপ্রিয় সেবা (হোমে সবার উপরে দেখাবে)</span>
             </label>
           </div>
         </div>

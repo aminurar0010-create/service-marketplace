@@ -23,6 +23,8 @@ export interface Service {
   category: string
   is_active: boolean
   image_url?: string | null
+  // হোমে "জনপ্রিয় সেবা" হিসেবে সবার উপরে দেখানো হবে (supabase_phase4g_popular_services.sql)
+  is_popular?: boolean | null
   estimated_hours?: number
   urgent_fee_type?: 'fixed' | 'percentage' | null
   urgent_fee_value?: number | null

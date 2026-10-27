@@ -9,6 +9,7 @@ import Analytics from './components/Analytics'
 import PageLoader from './components/PageLoader'
 import SiteBanner from './components/SiteBanner'
 import ScrollToHash from './components/ScrollToHash'
+import FloatingContact from './components/FloatingContact'
 
 // Pages
 import Home from './pages/Home'
@@ -201,6 +202,7 @@ export default function App() {
         <PublicChrome>
           <Footer />
         </PublicChrome>
+        <FloatingContact />
         <InstallPrompt />
         <Suspense fallback={null}>
           <ChatWidget />
