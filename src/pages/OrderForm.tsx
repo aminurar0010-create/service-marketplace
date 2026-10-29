@@ -1,251 +1,257 @@
-import { useEffect, useState } from 'react'
-import { supabase, Service, ServiceCustomField, ServiceRequiredDocument, ProductVariant, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Upload, CheckCircle, Tag, X, Zap, Copy, Check } from 'lucide-react'
-import DeliveryEstimate from '../components/DeliveryEstimate'
+import { supabase, Service, ProductVariant, CouponValidationResult, CreateOrderResult } from '../lib/supabase'
+import { isValidPhone, normalizePhone } from '../lib/phone'
+import { calcPricing } from './order/pricing'
+import { validateAll, validateStep, usesBkash } from './order/validation'
+import { clearDraft, readDraft, useOrderDraft, type OrderDraft } from './order/useOrderDraft'
+import { useServiceOptions } from './order/useServiceOptions'
+import { STEPS, emptyValues, type AppliedCoupon, type FieldErrors, type OrderValues, type StepId } from './order/types'
+import { cardCls } from './order/ui'
+import StepIndicator from './order/StepIndicator'
+import StepNav from './order/StepNav'
+import DraftBanner from './order/DraftBanner'
+import StepService from './order/StepService'
+import StepDetails from './order/StepDetails'
+import StepDocuments from './order/StepDocuments'
+import StepPayment from './order/StepPayment'
+import StepReview from './order/StepReview'
+import OrderSuccess from './order/OrderSuccess'
 
+interface UploadedDoc {
+  name: string
+  path: string
+  size: number
+  label?: string
+}
+
+// ফেজ ৫ — অর্ডার ফর্ম ধাপে ধাপে: সেবা → তথ্য → ডকুমেন্ট → পেমেন্ট → নিশ্চিত।
+// এই ফাইলে শুধু অবস্থা ও জমা দেওয়ার লজিক; প্রতিটি ধাপের পর্দা ./order/ ফোল্ডারে।
+// সার্ভারের create_order-এর ডাকা ও ফলাফল আগের মতোই।
 export default function OrderForm() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const urlService = searchParams.get('service') || ''
+
   const [services, setServices] = useState<Service[]>([])
-  const [loading, setLoading] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [trackingId, setTrackingId] = useState('')
-  const [finalAmountPaid, setFinalAmountPaid] = useState(0)
+  const [servicesLoading, setServicesLoading] = useState(true)
+  const [servicesError, setServicesError] = useState(false)
 
-  const [formData, setFormData] = useState({
-    service_id: searchParams.get('service') || '',
-    customer_name: '',
-    customer_phone: '',
-    customer_email: '',
-    payment_method: 'qr',
-    documents: [] as File[],
-  })
+  const [values, setValues] = useState<OrderValues>(() => emptyValues(urlService))
+  const [step, setStep] = useState<StepId>('service')
+  const [maxStepIdx, setMaxStepIdx] = useState(0)
+  const [errors, setErrors] = useState<FieldErrors>({})
+  const [fileNote, setFileNote] = useState('')
 
-  // কুপন সংক্রান্ত স্টেট
-  const [couponInput, setCouponInput] = useState('')
-  const [couponChecking, setCouponChecking] = useState(false)
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string
-    discount_amount: number
-    final_amount: number
-  } | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null)
   const [couponMessage, setCouponMessage] = useState<{ text: string; ok: boolean } | null>(null)
+  const [couponChecking, setCouponChecking] = useState(false)
 
-  // জরুরি (urgent) ডেলিভারি সংক্রান্ত স্টেট
-  const [isUrgent, setIsUrgent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [progressText, setProgressText] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [result, setResult] = useState<{ trackingId: string; amount: number; warnings: string[] } | null>(null)
 
-  // বিকাশ ট্রানজেকশন আইডি সংক্রান্ত স্টেট (শুধু যেসব সার্ভিসে বিকাশ-অনলি পেমেন্ট সেট করা আছে)
-  const [transactionId, setTransactionId] = useState('')
-  const [numberCopied, setNumberCopied] = useState(false)
+  // আগের অসমাপ্ত খসড়া (অন্য সেবার লিংক থেকে এলে দেখানো হয় না)
+  const [pendingDraft, setPendingDraft] = useState<OrderDraft | null>(() => {
+    const d = readDraft()
+    if (!d || (urlService && d.serviceId !== urlService)) return null
+    return d
+  })
+  const pendingVariantChoices = useRef<Record<string, string> | null>(null)
+  const uploadCache = useRef(new Map<File, UploadedDoc>()) // ব্যর্থ চেষ্টার পর আবার একই ফাইল আপলোড হবে না
+  const topRef = useRef<HTMLDivElement>(null)
 
-  // কাস্টম রিকোয়ারমেন্ট ফিল্ড সংক্রান্ত স্টেট
-  const [customFields, setCustomFields] = useState<ServiceCustomField[]>([])
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({})
-  const [customFieldsLoading, setCustomFieldsLoading] = useState(false)
+  const patch = useCallback((p: Partial<OrderValues>) => setValues((v) => ({ ...v, ...p })), [])
 
-  // প্রয়োজনীয় ডকুমেন্ট সংক্রান্ত স্টেট — প্রতিটার জন্য আলাদা আপলোড স্লট
-  const [requiredDocs, setRequiredDocs] = useState<ServiceRequiredDocument[]>([])
-  const [requiredDocFiles, setRequiredDocFiles] = useState<Record<string, File | null>>({})
-  const [requiredDocsLoading, setRequiredDocsLoading] = useState(false)
-
-  // প্রোডাক্ট ভ্যারিয়েন্ট (সাইজ/কালার) সংক্রান্ত স্টেট
-  const [variants, setVariants] = useState<ProductVariant[]>([])
-  const [selectedVariantByGroup, setSelectedVariantByGroup] = useState<Record<string, ProductVariant>>({})
-  const [variantsLoading, setVariantsLoading] = useState(false)
-
-  useEffect(() => {
-    fetchServices()
-  }, [])
-
-  const fetchServices = async () => {
+  // ---------- সেবার তালিকা ----------
+  const fetchServices = useCallback(async () => {
+    setServicesLoading(true)
+    setServicesError(false)
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('is_active', true)
-
+      const { data, error } = await supabase.from('services').select('*').eq('is_active', true)
       if (error) throw error
       setServices(data || [])
     } catch (error) {
       console.error('সার্ভিস লোড ত্রুটি:', error)
+      setServicesError(true)
+    } finally {
+      setServicesLoading(false)
     }
-  }
+  }, [])
 
-  const selectedService = services.find((s) => s.id === formData.service_id)
+  useEffect(() => {
+    fetchServices()
+  }, [fetchServices])
 
-  // নির্বাচিত ভ্যারিয়েন্টগুলোর দামের পার্থক্য যোগ করে সাবটোটাল হিসাব
-  const variantsDelta = Object.values(selectedVariantByGroup).reduce(
-    (sum, v) => sum + (v.price_delta || 0),
-    0
+  // লিংকের ?service=... এখন আর সক্রিয় নয় (বা ভুল) হলে বাদ দিই — না হলে অদৃশ্য সেবা নিয়ে অর্ডার যেত
+  useEffect(() => {
+    if (servicesLoading || servicesError || !values.serviceId) return
+    if (!services.some((s) => s.id === values.serviceId)) patch({ serviceId: '' })
+  }, [servicesLoading, servicesError, services, values.serviceId, patch])
+
+  const selectedService = services.find((s) => s.id === values.serviceId)
+  const opts = useServiceOptions(selectedService ? selectedService.id : '')
+
+  const variantGroups = useMemo(
+    () =>
+      opts.variants.reduce((acc: Record<string, ProductVariant[]>, v) => {
+        if (!acc[v.variant_group]) acc[v.variant_group] = []
+        acc[v.variant_group].push(v)
+        return acc
+      }, {}),
+    [opts.variants]
   )
-  const totalAmount = (selectedService?.price || 0) + variantsDelta
 
-  // ভ্যারিয়েন্টগুলোকে গ্রুপ অনুযায়ী সাজানো (যেমন: 'সাইজ' গ্রুপে XL, L, M)
-  const variantGroups = variants.reduce((acc: Record<string, ProductVariant[]>, v) => {
-    if (!acc[v.variant_group]) acc[v.variant_group] = []
-    acc[v.variant_group].push(v)
-    return acc
-  }, {})
+  const previewImageUrl = Object.values(values.variantByGroup).find((v) => v.image_url)?.image_url || selectedService?.image_url
+  const pricing = calcPricing(selectedService, values.variantByGroup, values.isUrgent, appliedCoupon)
 
-  // কোনো ভ্যারিয়েন্ট সিলেক্ট থাকলে তার ছবি, নাহলে সার্ভিসের ডিফল্ট ছবি
-  const previewImageUrl =
-    Object.values(selectedVariantByGroup).find((v) => v.image_url)?.image_url || selectedService?.image_url
+  // সেবা বদলালে তার নিচের সব নির্ভরশীল ঘর পরিষ্কার (আগের ফর্মের মতোই)
+  const handleServiceChange = (id: string) => {
+    setValues((v) => ({
+      ...v,
+      serviceId: id,
+      isUrgent: false,
+      customFieldValues: {},
+      variantByGroup: {},
+      transactionId: '',
+      requiredDocFiles: {},
+    }))
+    setErrors({})
+  }
 
-  // এই সার্ভিসের জন্য urgent fee এর হিসাব (দেখানোর জন্য, চূড়ান্ত হিসাব সার্ভারে হবে)
-  const estimatedUrgentFee = (() => {
-    if (!isUrgent || !selectedService?.urgent_fee_type || !selectedService?.urgent_fee_value) return 0
-    if (selectedService.urgent_fee_type === 'percentage') {
-      return Math.round((totalAmount * selectedService.urgent_fee_value) / 100)
-    }
-    return selectedService.urgent_fee_value
-  })()
-
-  // সার্ভিস বদলালে সেই সার্ভিসের custom fields লোড করুন
+  // বিকাশ-অনলি সেবায় মেথড 'bkash'-এ লক; অন্য সেবায় গেলে 'bkash' থেকে 'qr'-এ ফেরে
+  // (আগে ফিরত না — ফলে মেথড 'bkash' থেকেও ট্রানজেকশন আইডি ছাড়াই অর্ডার যেতে পারত)
   useEffect(() => {
-    setIsUrgent(false)
-    setCustomFieldValues({})
-    setSelectedVariantByGroup({})
-    setTransactionId('')
-    setRequiredDocFiles({})
-    if (!formData.service_id) {
-      setCustomFields([])
-      setVariants([])
-      setRequiredDocs([])
-      return
-    }
-    fetchCustomFields(formData.service_id)
-    fetchVariants(formData.service_id)
-    fetchRequiredDocs(formData.service_id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.service_id])
+    if (!selectedService) return
+    if (usesBkash(selectedService) && values.paymentMethod !== 'bkash') patch({ paymentMethod: 'bkash' })
+    else if (!usesBkash(selectedService) && values.paymentMethod === 'bkash') patch({ paymentMethod: 'qr' })
+  }, [selectedService, values.paymentMethod, patch])
 
-  // এই সার্ভিসে বিকাশ-অনলি পেমেন্ট বাধ্যতামূলক থাকলে পেমেন্ট মেথড স্বয়ংক্রিয়ভাবে 'bkash' এ লক করে দিন
-  useEffect(() => {
-    if (selectedService?.payment_bkash_number && formData.payment_method !== 'bkash') {
-      setFormData((prev) => ({ ...prev, payment_method: 'bkash' }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedService?.payment_bkash_number])
-
-  const fetchVariants = async (serviceId: string) => {
-    setVariantsLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .select('*')
-        .eq('service_id', serviceId)
-        .order('display_order', { ascending: true })
-
-      if (error) throw error
-      setVariants(data || [])
-    } catch (error) {
-      console.error('ভ্যারিয়েন্ট লোড ত্রুটি:', error)
-      setVariants([])
-    } finally {
-      setVariantsLoading(false)
-    }
-  }
-
-  const fetchCustomFields = async (serviceId: string) => {
-    setCustomFieldsLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('service_custom_fields')
-        .select('*')
-        .eq('service_id', serviceId)
-        .order('display_order', { ascending: true })
-
-      if (error) throw error
-      setCustomFields(data || [])
-    } catch (error) {
-      console.error('কাস্টম ফিল্ড লোড ত্রুটি:', error)
-      setCustomFields([])
-    } finally {
-      setCustomFieldsLoading(false)
-    }
-  }
-
-  const fetchRequiredDocs = async (serviceId: string) => {
-    setRequiredDocsLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('service_required_documents')
-        .select('*')
-        .eq('service_id', serviceId)
-        .order('display_order', { ascending: true })
-
-      if (error) throw error
-      setRequiredDocs(data || [])
-    } catch (error) {
-      console.error('প্রয়োজনীয় ডকুমেন্ট লোড ত্রুটি:', error)
-      setRequiredDocs([])
-    } finally {
-      setRequiredDocsLoading(false)
-    }
-  }
-
-  // সার্ভিস বা ফোন নম্বর বদলালে আগের প্রয়োগ করা কুপন বাতিল হয়ে যাবে
+  // সেবা, ফোন বা সাবটোটাল বদলালে আগের কুপন বাতিল (দাম বদলালে ছাড়ও বদলায়)
   useEffect(() => {
     if (appliedCoupon) {
       setAppliedCoupon(null)
-      setCouponMessage(null)
+      setCouponMessage({ text: 'দাম/তথ্য বদলেছে — কুপন আবার প্রয়োগ করুন', ok: false })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.service_id, formData.customer_phone])
+  }, [values.serviceId, values.phone, pricing.subtotal])
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    setFormData((prev) => ({
-      ...prev,
-      documents: [...prev.documents, ...files],
-    }))
+  // খসড়া থেকে ফেরানো ভ্যারিয়েন্ট বাছাই — সেবার ভ্যারিয়েন্ট লোড হলে বসে
+  useEffect(() => {
+    if (!pendingVariantChoices.current || !opts.ready) return
+    const choices = pendingVariantChoices.current
+    pendingVariantChoices.current = null
+    const next: Record<string, ProductVariant> = {}
+    Object.entries(choices).forEach(([group, value]) => {
+      const match = opts.variants.find((v) => v.variant_group === group && v.variant_value === value)
+      if (match) next[group] = match
+    })
+    if (Object.keys(next).length) patch({ variantByGroup: next })
+  }, [opts.ready, opts.variants, patch])
+
+  // মাঝপথে সেভ (খসড়ার প্রশ্নের উত্তর না দেওয়া পর্যন্ত ও সফল হওয়ার পর বন্ধ)
+  useOrderDraft(values, step, !pendingDraft && !result)
+
+  // ---------- নেভিগেশন ----------
+  const stepIdx = STEPS.findIndex((s) => s.id === step)
+
+  const scrollToTop = () => requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+
+  const goTo = (idx: number) => {
+    setStep(STEPS[idx].id)
+    setMaxStepIdx((m) => Math.max(m, idx))
+    setErrors({})
+    setSubmitError('')
+    setFileNote('')
+    scrollToTop()
   }
 
-  const removeFile = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      documents: prev.documents.filter((_, i) => i !== index),
-    }))
+  const showErrors = (errs: FieldErrors) => {
+    setErrors(errs)
+    const firstId = Object.keys(errs)[0]
+    requestAnimationFrame(() => {
+      const el = document.getElementById(firstId)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus?.()
+    })
   }
 
+  const ctx = {
+    values,
+    service: selectedService,
+    customFields: opts.customFields,
+    requiredDocs: opts.requiredDocs,
+    optionsLoading: opts.loading,
+    optionsError: opts.error,
+  }
+
+  const handleNext = () => {
+    const errs = validateStep(step, ctx)
+    if (Object.keys(errs).length > 0) return showErrors(errs)
+    goTo(stepIdx + 1)
+  }
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (loading) return
+    if (step !== 'review') return handleNext()
+    void submitOrder()
+  }
+
+  // ---------- খসড়া ----------
+  const resumeDraft = () => {
+    const d = pendingDraft
+    if (!d) return
+    const exists = services.some((s) => s.id === d.serviceId)
+    pendingVariantChoices.current = exists ? d.variantChoices : null
+    setValues({
+      ...emptyValues(exists ? d.serviceId : ''),
+      name: d.name,
+      phone: d.phone,
+      email: d.email,
+      paymentMethod: d.paymentMethod,
+      isUrgent: exists ? d.isUrgent : false,
+      customFieldValues: exists ? d.customFieldValues : {},
+      couponInput: d.couponInput,
+      transactionId: d.transactionId,
+    })
+    const idx = exists ? Math.max(0, STEPS.findIndex((s) => s.id === d.step)) : 0
+    setStep(STEPS[idx].id)
+    setMaxStepIdx(idx)
+    setPendingDraft(null)
+    scrollToTop()
+  }
+
+  const discardDraft = () => {
+    clearDraft()
+    setPendingDraft(null)
+  }
+
+  // ---------- কুপন ----------
   const handleApplyCoupon = async () => {
-    if (!couponInput.trim()) return
-
-    if (!formData.service_id) {
-      setCouponMessage({ text: 'প্রথমে একটি সেবা নির্বাচন করুন', ok: false })
-      return
-    }
-    if (!formData.customer_phone) {
-      setCouponMessage({ text: 'কুপন যাচাই করতে ফোন নম্বর দিন', ok: false })
-      return
-    }
+    const code = values.couponInput.trim()
+    if (!code) return
+    if (!values.serviceId) return setCouponMessage({ text: 'প্রথমে একটি সেবা নির্বাচন করুন', ok: false })
+    if (!isValidPhone(values.phone)) return setCouponMessage({ text: 'কুপন যাচাই করতে সঠিক ফোন নম্বর দিন (তথ্য ধাপে)', ok: false })
 
     setCouponChecking(true)
     setCouponMessage(null)
-
     try {
       const { data, error } = await supabase.rpc('validate_coupon', {
-        p_code: couponInput.trim(),
-        p_service_id: formData.service_id,
-        p_order_amount: totalAmount,
-        p_customer_phone: formData.customer_phone,
+        p_code: code,
+        p_service_id: values.serviceId,
+        p_order_amount: pricing.subtotal,
+        p_customer_phone: normalizePhone(values.phone),
       })
-
       if (error) throw error
-
-      const result = data as CouponValidationResult
-
-      if (result.valid) {
-        setAppliedCoupon({
-          code: couponInput.trim().toUpperCase(),
-          discount_amount: result.discount_amount || 0,
-          final_amount: result.final_amount ?? totalAmount,
-        })
-        setCouponMessage({ text: result.message, ok: true })
+      const r = data as CouponValidationResult
+      if (r.valid) {
+        setAppliedCoupon({ code: code.toUpperCase(), discount_amount: r.discount_amount || 0, final_amount: r.final_amount ?? pricing.subtotal })
+        setCouponMessage({ text: r.message, ok: true })
       } else {
         setAppliedCoupon(null)
-        setCouponMessage({ text: result.message, ok: false })
+        setCouponMessage({ text: r.message, ok: false })
       }
     } catch (error) {
       console.error('কুপন যাচাই ত্রুটি:', error)
@@ -257,662 +263,243 @@ export default function OrderForm() {
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null)
-    setCouponInput('')
+    patch({ couponInput: '' })
     setCouponMessage(null)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // ---------- জমা দেওয়া ----------
+  const resetAll = () => {
+    setValues(emptyValues())
+    setStep('service')
+    setMaxStepIdx(0)
+    setErrors({})
+    setAppliedCoupon(null)
+    setCouponMessage(null)
+    setSubmitError('')
+    setFileNote('')
+    uploadCache.current.clear()
+  }
 
-    if (!formData.service_id || !formData.customer_name || !formData.customer_phone) {
-      alert('সকল প্রয়োজনীয় ক্ষেত্র পূরণ করুন')
+  const submitOrder = async () => {
+    if (!selectedService) return
+
+    // ধাপ এড়িয়ে (ট্যাপ করে বা খসড়া থেকে) এসে থাকলেও সব ধাপ আবার যাচাই
+    const problem = validateAll(ctx)
+    if (problem) {
+      const idx = STEPS.findIndex((s) => s.id === problem.step)
+      setStep(problem.step)
+      setMaxStepIdx((m) => Math.max(m, idx))
+      setSubmitError('')
+      showErrors(problem.errors)
       return
-    }
-
-    // আবশ্যিক (required) কাস্টম ফিল্ড পূরণ হয়েছে কিনা যাচাই করুন
-    for (const field of customFields) {
-      if (field.is_required && !customFieldValues[field.id]?.trim()) {
-        alert(`দয়া করে "${field.field_label}" পূরণ করুন`)
-        return
-      }
-    }
-
-    // বিকাশ-অনলি সার্ভিসে ট্রানজেকশন আইডি বাধ্যতামূলক
-    if (selectedService?.payment_bkash_number && !transactionId.trim()) {
-      alert('দয়া করে বিকাশ ট্রানজেকশন আইডি দিন')
-      return
-    }
-
-    // সুপার কিউআর দিয়ে পেমেন্ট করলে রেফারেন্স/ট্রানজেকশন নম্বর বাধ্যতামূলক
-    if (!selectedService?.payment_bkash_number && formData.payment_method === 'qr' && !transactionId.trim()) {
-      alert('দয়া করে পেমেন্ট রেফারেন্স/ট্রানজেকশন নম্বর দিন')
-      return
-    }
-
-    // প্রয়োজনীয় ডকুমেন্ট সবগুলো আপলোড হয়েছে কিনা যাচাই করুন
-    for (const doc of requiredDocs) {
-      if (!requiredDocFiles[doc.id]) {
-        alert(`দয়া করে "${doc.label}" আপলোড করুন`)
-        return
-      }
     }
 
     setLoading(true)
+    setSubmitError('')
+    const warnings: string[] = []
 
     try {
-      // ডকুমেন্ট আপলোড করুন
-      const uploadedDocs = []
-      for (const file of formData.documents) {
-        const fileName = `${Date.now()}_${file.name}`
-        const { error: uploadError } = await supabase.storage
-          .from('order-documents')
-          .upload(`${formData.customer_phone}/${fileName}`, file)
+      const phone = normalizePhone(values.phone)
 
-        if (!uploadError) {
-          uploadedDocs.push({
-            name: file.name,
-            path: `${formData.customer_phone}/${fileName}`,
-            size: file.size,
-          })
+      // ১) ডকুমেন্ট আপলোড — আগে (সাধারণ ফাইল) তারপর (নির্দিষ্ট ডকুমেন্ট, লেবেলসহ), আগের ক্রমেই।
+      // কোনো ফাইল আপলোড না হলে অর্ডার তৈরি হয় না (আগে ব্যর্থ ফাইল চুপচাপ বাদ পড়ত)।
+      const queue: { file: File; label?: string }[] = [
+        ...values.extraFiles.map((file) => ({ file })),
+        ...opts.requiredDocs.flatMap((doc) => {
+          const file = values.requiredDocFiles[doc.id]
+          return file ? [{ file, label: doc.label }] : []
+        }),
+      ]
+      const uploadedDocs: UploadedDoc[] = []
+      for (let i = 0; i < queue.length; i++) {
+        const { file, label } = queue[i]
+        setProgressText(`ফাইল আপলোড হচ্ছে (${i + 1}/${queue.length})...`)
+        let up = uploadCache.current.get(file)
+        if (!up) {
+          // স্টোরেজ-কী শুধু ইংরেজি অক্ষর/অঙ্ক (বাংলা নাম বা বিশেষ চিহ্ন থাকলে আপলোড ব্যর্থ হতো); দেখানোর নাম আসল
+          const safe = file.name.replace(/[^A-Za-z0-9._-]+/g, '_')
+          const path = `${phone}/${Date.now()}_${i}_${safe}`
+          const { error: uploadError } = await supabase.storage.from('order-documents').upload(path, file)
+          if (uploadError) {
+            console.error('ফাইল আপলোড ত্রুটি:', uploadError)
+            setSubmitError(`"${file.name}" আপলোড হয়নি। ইন্টারনেট দেখে আবার "অর্ডার নিশ্চিত করুন" চাপুন — আগে যা আপলোড হয়েছে তা আবার পাঠাতে হবে না।`)
+            setLoading(false)
+            setProgressText('')
+            return
+          }
+          up = { name: file.name, path, size: file.size }
+          uploadCache.current.set(file, up)
         }
+        uploadedDocs.push(label ? { ...up, label } : up)
       }
 
-      // নির্দিষ্ট প্রয়োজনীয় ডকুমেন্টগুলো (label ট্যাগ সহ) আপলোড করুন
-      for (const doc of requiredDocs) {
-        const file = requiredDocFiles[doc.id]
-        if (!file) continue
-        const fileName = `${Date.now()}_${file.name}`
-        const { error: uploadError } = await supabase.storage
-          .from('order-documents')
-          .upload(`${formData.customer_phone}/${fileName}`, file)
+      // ২) কাস্টম ফিল্ডের উত্তর
+      const customFieldResponses = opts.customFields
+        .filter((f) => values.customFieldValues[f.id]?.trim())
+        .map((f) => ({ field_id: f.id, label: f.field_label, value: values.customFieldValues[f.id] }))
 
-        if (!uploadError) {
-          uploadedDocs.push({
-            name: file.name,
-            path: `${formData.customer_phone}/${fileName}`,
-            size: file.size,
-            label: doc.label,
-          })
-        }
-      }
-
-      // কাস্টম ফিল্ডের উত্তরগুলো গুছিয়ে নিন
-      const customFieldResponses = customFields
-        .filter((field) => customFieldValues[field.id]?.trim())
-        .map((field) => ({
-          field_id: field.id,
-          label: field.field_label,
-          value: customFieldValues[field.id],
-        }))
-
-      // অর্ডার তৈরি করুন (RLS bypass করা SECURITY DEFINER ফাংশন দিয়ে)
+      // ৩) অর্ডার তৈরি (SECURITY DEFINER ফাংশন) — প্যারামিটার আগের মতোই
+      setProgressText('অর্ডার তৈরি করছি...')
       const { data, error } = await supabase.rpc('create_order', {
-        p_service_id: formData.service_id,
-        p_customer_name: formData.customer_name,
-        p_customer_phone: formData.customer_phone,
-        p_customer_email: formData.customer_email || null,
-        p_payment_method: formData.payment_method,
+        p_service_id: values.serviceId,
+        p_customer_name: values.name.trim(),
+        p_customer_phone: phone,
+        p_customer_email: values.email.trim() || null,
+        p_payment_method: values.paymentMethod,
         p_documents: uploadedDocs,
-        p_total_amount: totalAmount,
+        p_total_amount: pricing.subtotal,
         p_coupon_code: appliedCoupon?.code || null,
-        p_is_urgent: isUrgent,
+        p_is_urgent: values.isUrgent,
         p_custom_field_responses: customFieldResponses,
       })
-
       if (error) throw error
 
-      const result = data as CreateOrderResult
-
-      if (!result.success) {
-        alert(result.message || 'কুপন প্রয়োগ করা যায়নি। দয়া করে কুপন ছাড়া আবার চেষ্টা করুন।')
+      const r = data as CreateOrderResult
+      if (!r.success) {
+        setSubmitError(r.message || 'কুপন প্রয়োগ করা যায়নি। পেমেন্ট ধাপ থেকে কুপন সরিয়ে আবার চেষ্টা করুন।')
         setLoading(false)
+        setProgressText('')
         return
       }
 
-      if (result.tracking_id) {
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData.session?.user) {
-          await supabase.rpc('link_order_to_customer', { p_tracking_id: result.tracking_id })
+      // ৪) অর্ডার হয়ে গেছে; নিচের ধাপগুলো ব্যর্থ হলে অর্ডার বাতিল নয় — ব্যবহারকারীকে জানানো হয়
+      if (r.tracking_id) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession()
+          if (sessionData.session?.user) {
+            await supabase.rpc('link_order_to_customer', { p_tracking_id: r.tracking_id })
+          }
+        } catch (e) {
+          console.error('অ্যাকাউন্টে অর্ডার যুক্ত ত্রুটি:', e)
         }
 
-        // নির্বাচিত ভ্যারিয়েন্ট থাকলে অর্ডারের সাথে সেভ করুন
-        const selectedVariantsList = Object.values(selectedVariantByGroup).map((v) => ({
-          group: v.variant_group,
-          value: v.variant_value,
-          price_delta: v.price_delta,
-        }))
-        if (selectedVariantsList.length > 0) {
-          await supabase.rpc('save_order_variants', {
-            p_tracking_id: result.tracking_id,
-            p_selected_variants: selectedVariantsList,
-          })
+        const variantList = Object.values(values.variantByGroup).map((v) => ({ group: v.variant_group, value: v.variant_value, price_delta: v.price_delta }))
+        if (variantList.length > 0) {
+          try {
+            const { error: vErr } = await supabase.rpc('save_order_variants', { p_tracking_id: r.tracking_id, p_selected_variants: variantList })
+            if (vErr) throw vErr
+          } catch (e) {
+            console.error('ভ্যারিয়েন্ট সেভ ত্রুটি:', e)
+            warnings.push('আপনার বাছাই করা অপশন (সাইজ/কালার ইত্যাদি) অর্ডারে সেভ হয়নি।')
+          }
         }
 
-        // বিকাশ ট্রানজেকশন আইডি থাকলে অর্ডারের সাথে সেভ করুন
-        if (transactionId.trim()) {
-          await supabase.rpc('set_order_transaction_id', {
-            p_tracking_id: result.tracking_id,
-            p_transaction_id: transactionId.trim(),
-          })
+        if (values.transactionId.trim()) {
+          try {
+            const { error: tErr } = await supabase.rpc('set_order_transaction_id', { p_tracking_id: r.tracking_id, p_transaction_id: values.transactionId.trim() })
+            if (tErr) throw tErr
+          } catch (e) {
+            console.error('ট্রানজেকশন আইডি সেভ ত্রুটি:', e)
+            warnings.push('পেমেন্টের ট্রানজেকশন আইডি অর্ডারে সেভ হয়নি।')
+          }
         }
       }
 
-      setTrackingId(result.tracking_id || '')
-      setFinalAmountPaid(result.final_amount ?? totalAmount)
-      setSubmitted(true)
-      setFormData({
-        service_id: '',
-        customer_name: '',
-        customer_phone: '',
-        customer_email: '',
-        payment_method: 'qr',
-        documents: [],
-      })
-      setAppliedCoupon(null)
-      setCouponInput('')
-      setCouponMessage(null)
-      setIsUrgent(false)
-      setCustomFieldValues({})
-      setSelectedVariantByGroup({})
-      setTransactionId('')
-      setRequiredDocFiles({})
+      clearDraft()
+      setResult({ trackingId: r.tracking_id || '', amount: r.final_amount ?? pricing.subtotal, warnings })
+      resetAll()
     } catch (error) {
       console.error('অর্ডার সৃষ্টি ত্রুটি:', error)
-      alert('অর্ডার তৈরি করতে ব্যর্থ। দয়া করে পরে চেষ্টা করুন।')
+      setSubmitError('অর্ডার তৈরি করতে ব্যর্থ। ইন্টারনেট দেখে আবার চেষ্টা করুন।')
     } finally {
       setLoading(false)
+      setProgressText('')
     }
   }
 
-  if (submitted) {
+  // ---------- পর্দা ----------
+  if (result) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-12">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">অর্ডার সফল!</h2>
-          <p className="text-gray-600 mb-6">
-            আপনার অর্ডার সফলভাবে তৈরি হয়েছে।
-          </p>
-          <div className="bg-gray-100 p-4 rounded-lg mb-6">
-            <p className="text-sm text-gray-500 mb-2">আপনার ট্র্যাকিং নম্বর:</p>
-            <p className="text-2xl font-bold text-indigo-600 font-mono">{trackingId}</p>
-          </div>
-          <p className="text-gray-600 mb-2">
-            পরিশোধযোগ্য মোট পরিমাণ:
-          </p>
-          <p className="text-xl font-bold text-gray-800 mb-6">৳{finalAmountPaid}</p>
-          <div className="space-y-2">
-            <button
-              onClick={() => navigate('/tracking')}
-              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition"
-            >
-              ট্র্যাকিং চেক করুন
-            </button>
-            <button
-              onClick={() => {
-                setSubmitted(false)
-                window.scrollTo(0, 0)
-              }}
-              className="w-full border border-indigo-600 text-indigo-600 py-2 rounded-lg hover:bg-indigo-50 transition"
-            >
-              নতুন অর্ডার তৈরি করুন
-            </button>
-          </div>
-        </div>
-      </div>
+      <OrderSuccess
+        trackingId={result.trackingId}
+        amount={result.amount}
+        warnings={result.warnings}
+        onTrack={() => navigate('/tracking')}
+        onNew={() => {
+          setResult(null)
+          window.scrollTo(0, 0)
+        }}
+      />
     )
   }
 
+  const draftServiceName = pendingDraft ? services.find((s) => s.id === pendingDraft.serviceId)?.name : undefined
+
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4">
-      <h1 className="text-3xl font-bold mb-8">নতুন অর্ডার তৈরি করুন</h1>
+    <div className="max-w-2xl mx-auto py-8 sm:py-12 px-4">
+      <div ref={topRef} className="scroll-mt-24" />
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">নতুন অর্ডার তৈরি করুন</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-8">
-        {/* সেবা নির্বাচন */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">সেবা নির্বাচন করুন *</label>
-          <select
-            value={formData.service_id}
-            onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="">-- একটি সেবা বেছে নিন --</option>
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.name} (৳{service.price})
-              </option>
-            ))}
-          </select>
-        </div>
+      {pendingDraft && (
+        <DraftBanner
+          serviceName={draftServiceName}
+          savedAt={pendingDraft.savedAt}
+          canResume={!servicesLoading}
+          onResume={resumeDraft}
+          onDiscard={discardDraft}
+        />
+      )}
 
-        {/* প্রোডাক্ট ছবি প্রিভিউ — ভ্যারিয়েন্ট বদলালে ছবিও বদলাবে */}
-        {previewImageUrl && (
-          <div className="mb-6">
-            <img
-              src={previewImageUrl}
-              alt={selectedService?.name || ''}
-              className="w-full max-h-64 object-cover rounded-lg border border-gray-200"
-            />
-          </div>
+      <StepIndicator current={stepIdx} maxReached={maxStepIdx} onGo={goTo} />
+
+      <form onSubmit={onSubmit} noValidate className={cardCls}>
+        {step === 'service' && (
+          <StepService
+            services={services}
+            servicesLoading={servicesLoading}
+            servicesError={servicesError}
+            onRetryServices={fetchServices}
+            values={values}
+            errors={errors}
+            selectedService={selectedService}
+            variantGroups={variantGroups}
+            previewImageUrl={previewImageUrl}
+            optionsLoading={opts.loading}
+            optionsError={opts.error}
+            onRetryOptions={opts.retry}
+            onServiceChange={handleServiceChange}
+            onPatch={patch}
+          />
         )}
-
-        {/* প্রোডাক্ট ভ্যারিয়েন্ট নির্বাচন — সাইজ/কালার ইত্যাদি */}
-        {!variantsLoading && Object.keys(variantGroups).length > 0 && (
-          <div className="mb-6 space-y-4">
-            <p className="text-sm font-semibold text-gray-700">অপশন নির্বাচন করুন</p>
-            {Object.entries(variantGroups).map(([group, options]) => (
-              <div key={group}>
-                <label className="block text-sm font-semibold mb-2">{group}</label>
-                <div className="flex flex-wrap gap-2">
-                  {options.map((option) => {
-                    const isSelected = selectedVariantByGroup[group]?.id === option.id
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedVariantByGroup((prev) => ({ ...prev, [group]: option }))
-                        }
-                        className={`px-4 py-2 rounded-lg border text-sm font-semibold transition ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
-                        }`}
-                      >
-                        {option.variant_value}
-                        {option.price_delta !== 0 && (
-                          <span className={`ml-1 text-xs ${isSelected ? 'text-indigo-100' : 'text-gray-400'}`}>
-                            ({option.price_delta > 0 ? '+' : ''}৳{option.price_delta})
-                          </span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+        {step === 'details' && (
+          <StepDetails values={values} errors={errors} customFields={opts.customFields} optionsLoading={opts.loading} onPatch={patch} />
         )}
-
-        {/* নাম */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">সম্পূর্ণ নাম *</label>
-          <input
-            type="text"
-            required
-            value={formData.customer_name}
-            onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="আপনার সম্পূর্ণ নাম"
+        {step === 'documents' && (
+          <StepDocuments values={values} errors={errors} requiredDocs={opts.requiredDocs} fileNote={fileNote} onPatch={patch} onFileNote={setFileNote} />
+        )}
+        {step === 'payment' && (
+          <StepPayment
+            values={values}
+            errors={errors}
+            service={selectedService}
+            coupon={appliedCoupon}
+            couponMessage={couponMessage}
+            couponChecking={couponChecking}
+            pricing={pricing}
+            onPatch={patch}
+            onApplyCoupon={handleApplyCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
           />
-        </div>
-
-        {/* ফোন নম্বর */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">ফোন নম্বর *</label>
-          <input
-            type="tel"
-            required
-            value={formData.customer_phone}
-            onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="০১X XXXX XXXX"
-          />
-        </div>
-
-        {/* ইমেইল */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">ইমেইল (ঐচ্ছিক)</label>
-          <input
-            type="email"
-            value={formData.customer_email}
-            onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="আপনার ইমেইল"
-          />
-        </div>
-
-        {/* জরুরি (urgent) ডেলিভারি অপশন — শুধু যেসব সার্ভিসে urgent fee সেট করা আছে সেখানে দেখাবে */}
-        {selectedService?.urgent_fee_type && selectedService?.urgent_fee_value ? (
-          <div className="mb-6">
-            <label className="flex items-start gap-3 cursor-pointer bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
-              <input
-                type="checkbox"
-                checked={isUrgent}
-                onChange={(e) => setIsUrgent(e.target.checked)}
-                className="w-4 h-4 mt-1"
-              />
-              <span>
-                <span className="flex items-center gap-1 font-semibold text-orange-700">
-                  <Zap className="w-4 h-4" />
-                  জরুরি (Urgent) ডেলিভারি
-                  {selectedService.urgent_delivery_hours ? ` — ${selectedService.urgent_delivery_hours} ঘণ্টার মধ্যে` : ''}
-                </span>
-                <span className="block text-sm text-orange-600 mt-1">
-                  অতিরিক্ত ফি: {selectedService.urgent_fee_type === 'percentage'
-                    ? `${selectedService.urgent_fee_value}%`
-                    : `৳${selectedService.urgent_fee_value}`}
-                </span>
-              </span>
-            </label>
-          </div>
-        ) : null}
-
-        {/* ডেলিভারি টাইম ক্যালকুলেটর — সার্ভিস বাছাই করলে আনুমানিক ডেলিভারি সময় দেখাবে */}
-        {selectedService && (
-          <DeliveryEstimate
-            estimatedHours={selectedService.estimated_hours}
-            isUrgent={isUrgent}
-            urgentHours={selectedService.urgent_delivery_hours}
+        )}
+        {step === 'review' && (
+          <StepReview
+            values={values}
+            service={selectedService}
+            requiredDocs={opts.requiredDocs}
+            coupon={appliedCoupon}
+            pricing={pricing}
+            submitError={submitError}
+            onEdit={(s) => goTo(STEPS.findIndex((x) => x.id === s))}
           />
         )}
 
-        {/* কাস্টম রিকোয়ারমেন্ট ফিল্ড — সার্ভিস ভিত্তিক ডায়নামিক ফর্ম */}
-        {!customFieldsLoading && customFields.length > 0 && (
-          <div className="mb-6 space-y-4">
-            <p className="text-sm font-semibold text-gray-700">অতিরিক্ত তথ্য</p>
-            {customFields.map((field) => (
-              <div key={field.id}>
-                <label className="block text-sm font-semibold mb-2">
-                  {field.field_label} {field.is_required && '*'}
-                </label>
-                {field.field_type === 'textarea' ? (
-                  <textarea
-                    value={customFieldValues[field.id] || ''}
-                    onChange={(e) =>
-                      setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    rows={3}
-                  />
-                ) : field.field_type === 'select' ? (
-                  <select
-                    value={customFieldValues[field.id] || ''}
-                    onChange={(e) =>
-                      setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="">-- নির্বাচন করুন --</option>
-                    {(field.options || []).map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                ) : field.field_type === 'checkbox' ? (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={customFieldValues[field.id] === 'true'}
-                      onChange={(e) =>
-                        setCustomFieldValues((prev) => ({
-                          ...prev,
-                          [field.id]: e.target.checked ? 'true' : '',
-                        }))
-                      }
-                      className="w-4 h-4"
-                    />
-                    <span>হ্যাঁ</span>
-                  </label>
-                ) : (
-                  <input
-                    type={field.field_type === 'number' ? 'number' : 'text'}
-                    value={customFieldValues[field.id] || ''}
-                    onChange={(e) =>
-                      setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* পেমেন্ট পদ্ধতি */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">পেমেন্ট পদ্ধতি *</label>
-
-          {selectedService?.payment_bkash_number ? (
-            <div className="bg-pink-50 border border-pink-300 rounded-lg p-4 space-y-3">
-              <p className="text-sm text-pink-800">
-                এই সেবার জন্য পেমেন্ট শুধুমাত্র <span className="font-semibold">বিকাশ (পার্সোনাল)</span> নম্বরে
-                গ্রহণযোগ্য।
-              </p>
-              <div className="flex items-center justify-between bg-white border border-pink-200 rounded-lg px-4 py-3">
-                <div>
-                  <p className="text-xs text-gray-500">বিকাশ পার্সোনাল নম্বর</p>
-                  <p className="text-lg font-bold text-pink-700 font-mono">
-                    {selectedService.payment_bkash_number}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedService.payment_bkash_number || '')
-                    setNumberCopied(true)
-                    setTimeout(() => setNumberCopied(false), 2000)
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-pink-600 text-white text-sm font-semibold rounded-lg hover:bg-pink-700 transition"
-                >
-                  {numberCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {numberCopied ? 'কপি হয়েছে' : 'কপি করুন'}
-                </button>
-              </div>
-              <p className="text-xs text-pink-700">
-                উপরের নম্বরে "Send Money" করে নিচে ট্রানজেকশন আইডি দিন, তারপর অর্ডার সাবমিট করুন।
-              </p>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">বিকাশ ট্রানজেকশন আইডি *</label>
-                <input
-                  type="text"
-                  required
-                  value={transactionId}
-                  onChange={(e) => setTransactionId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent uppercase"
-                  placeholder="যেমনঃ 9G7H8J2K1L"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <label className="flex items-start gap-2 cursor-pointer border border-gray-300 rounded-lg p-3">
-                <input
-                  type="radio"
-                  name="payment"
-                  value="qr"
-                  checked={formData.payment_method === 'qr'}
-                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <span className="font-semibold">সুপার কিউআর (যেকোনো অ্যাপ দিয়ে স্ক্যান করুন)</span>
-                  <p className="text-xs text-gray-500 mt-0.5">বিকাশ, নগদ, রকেট, বা যেকোনো ব্যাংক অ্যাপ দিয়ে স্ক্যান করে পে করা যাবে</p>
-                  {formData.payment_method === 'qr' && (
-                    <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-3 space-y-3">
-                      <img src="/payment/super-qr.png" alt="Super QR" className="w-40 h-40 mx-auto" />
-                      <p className="text-center text-sm font-semibold">নিউ প্রিন্টার্স — 01968-673241</p>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">পেমেন্ট রেফারেন্স/ট্রানজেকশন নম্বর *</label>
-                        <input
-                          type="text"
-                          required
-                          value={transactionId}
-                          onChange={(e) => setTransactionId(e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          placeholder="স্ক্যান করে পে করার পর যে নম্বর/রেফারেন্স পাবেন সেটা দিন"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer border border-gray-300 rounded-lg p-3">
-                <input
-                  type="radio"
-                  name="payment"
-                  value="cod"
-                  checked={formData.payment_method === 'cod'}
-                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                />
-                <span className="font-semibold">ক্যাশ অন ডেলিভারি</span>
-              </label>
-            </div>
-          )}
-        </div>
-
-        {/* নির্দিষ্ট প্রয়োজনীয় ডকুমেন্ট — সার্ভিসে টেমপ্লেট সেট করা থাকলে প্রতিটার জন্য আলাদা আপলোড স্লট */}
-        {!requiredDocsLoading && requiredDocs.length > 0 && (
-          <div className="mb-6 space-y-3">
-            <label className="block text-sm font-semibold">প্রয়োজনীয় ডকুমেন্ট *</label>
-            {requiredDocs.map((doc) => (
-              <div key={doc.id} className="border border-gray-300 rounded-lg p-3">
-                <p className="text-sm font-semibold mb-2">{doc.label} *</p>
-                <input
-                  type="file"
-                  required
-                  accept="image/*,.pdf"
-                  onChange={(e) =>
-                    setRequiredDocFiles((prev) => ({
-                      ...prev,
-                      [doc.id]: e.target.files?.[0] || null,
-                    }))
-                  }
-                  className="text-sm w-full"
-                />
-                {requiredDocFiles[doc.id] && (
-                  <p className="text-xs text-green-600 mt-1">✓ {requiredDocFiles[doc.id]!.name}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ডকুমেন্ট আপলোড */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">ডকুমেন্ট আপলোড করুন</label>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-            <input
-              type="file"
-              multiple
-              onChange={handleFileUpload}
-              className="hidden"
-              id="file-upload"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <span className="text-indigo-600 font-semibold">ফাইল বাছাই করুন</span> বা ড্র্যাগ করুন
-            </label>
-            <p className="text-sm text-gray-500 mt-2">
-              PDF, JPG, PNG, DOC ফাইল সমর্থিত (সর্বোচ্চ ৫ ফাইল)
-            </p>
-          </div>
-
-          {formData.documents.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="font-semibold">আপলোড করা ফাইলসমূহ:</p>
-              {formData.documents.map((file, index) => (
-                <div key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded">
-                  <span className="text-sm">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(index)}
-                    className="text-red-600 hover:text-red-700 font-semibold"
-                  >
-                    সরান
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* কুপন কোড */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2">কুপন কোড (ঐচ্ছিক)</label>
-          {appliedCoupon ? (
-            <div className="flex items-center justify-between bg-green-50 border border-green-300 rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-green-600" />
-                <span className="font-semibold text-green-700">{appliedCoupon.code}</span>
-                <span className="text-sm text-green-700">
-                  (-৳{appliedCoupon.discount_amount} ছাড়)
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleRemoveCoupon}
-                className="text-gray-500 hover:text-red-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={couponInput}
-                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent uppercase"
-                placeholder="কুপন কোড লিখুন"
-              />
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                disabled={couponChecking || !couponInput.trim()}
-                className="bg-gray-800 text-white px-5 py-2 rounded-lg font-semibold hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {couponChecking ? 'যাচাই হচ্ছে...' : 'প্রয়োগ করুন'}
-              </button>
-            </div>
-          )}
-          {couponMessage && (
-            <p className={`text-sm mt-2 ${couponMessage.ok ? 'text-green-600' : 'text-red-600'}`}>
-              {couponMessage.text}
-            </p>
-          )}
-        </div>
-
-        {/* মূল্য সারসংক্ষেপ */}
-        {selectedService && (
-          <div className="bg-gray-50 p-4 rounded-lg mb-6 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">সাবটোটাল:</span>
-              <span className="font-semibold">৳{totalAmount}</span>
-            </div>
-            {appliedCoupon && (
-              <div className="flex justify-between items-center text-green-600">
-                <span>ছাড় ({appliedCoupon.code}):</span>
-                <span className="font-semibold">-৳{appliedCoupon.discount_amount}</span>
-              </div>
-            )}
-            {isUrgent && estimatedUrgentFee > 0 && (
-              <div className="flex justify-between items-center text-orange-600">
-                <span>জরুরি ফি:</span>
-                <span className="font-semibold">+৳{estimatedUrgentFee}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center border-t border-gray-200 pt-2">
-              <span className="font-semibold">মোট পরিমাণ (আনুমানিক):</span>
-              <span className="text-2xl font-bold text-indigo-600">
-                ৳{(appliedCoupon ? appliedCoupon.final_amount : totalAmount) + (isUrgent ? estimatedUrgentFee : 0)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* সাবমিট বাটন */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'অর্ডার তৈরি করছি...' : 'অর্ডার তৈরি করুন'}
-        </button>
+        <StepNav
+          isFirst={stepIdx === 0}
+          isLast={step === 'review'}
+          loading={loading}
+          loadingText={progressText || 'অপেক্ষা করুন...'}
+          onBack={() => goTo(stepIdx - 1)}
+        />
       </form>
     </div>
   )
