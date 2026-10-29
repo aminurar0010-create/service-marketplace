@@ -155,6 +155,21 @@ export async function fetchStatement(customerId: string | null, phone: string): 
   return { rows }
 }
 
+/**
+ * কাস্টমারের আগের মোট বাকি (POS + অর্ডার), একটি নির্দিষ্ট বিক্রি বাদে — নতুন POS মেমোতে "পূর্বের বাকী" দেখাতে।
+ * ব্যর্থ হলে ০ ধরা হয় (মেমো প্রিন্ট আটকায় না)।
+ */
+export async function fetchPreviousDue(customerId: string | null | undefined, phone: string | null | undefined, excludeSaleId: string): Promise<number> {
+  if (!customerId) return 0
+  try {
+    const { rows } = await fetchStatement(customerId, phone || '')
+    return round2(rows.filter((r) => r.key !== 'pos-' + excludeSaleId).reduce((a, r) => a + r.due, 0))
+  } catch (e) {
+    console.error('পূর্বের বাকি লোড ত্রুটি:', e)
+    return 0
+  }
+}
+
 const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const day = (iso: string) => format(new Date(iso), 'dd/MM/yyyy')
 

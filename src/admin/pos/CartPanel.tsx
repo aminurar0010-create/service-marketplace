@@ -11,6 +11,7 @@ import {
 } from '../../lib/supabase'
 import { printReceipt } from '../../lib/receipt'
 import { printMemo } from '../../lib/memo'
+import { fetchPreviousDue } from '../../lib/statement'
 import CustomerPicker from '../../components/CustomerPicker'
 import { CartLine, PAY_METHODS, PayMethod } from './posTypes'
 
@@ -186,8 +187,10 @@ export default function CartPanel({ cart, onQty, onSetQty, onRemove, onClear, on
       ])
       if (sale) {
         const args = [sale as POSSale, (items || []) as POSSaleItem[], (pays || []) as SalePayment[]] as const
-        if (format === 'a5') printMemo(args[0], args[1], args[2], customer?.address || '')
-        else printReceipt(...args)
+        // আগের বাকি থাকলে মেমো/রশিদে "পূর্বের বাকী" দেখানো হবে (এই বিক্রি বাদে)
+        const previousDue = await fetchPreviousDue(customer?.id, customer?.phone, result.sale_id as string)
+        if (format === 'a5') printMemo(args[0], args[1], args[2], customer?.address || '', previousDue)
+        else printReceipt(args[0], args[1], args[2], previousDue)
       }
 
       reset()

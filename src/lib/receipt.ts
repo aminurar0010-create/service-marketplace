@@ -22,7 +22,7 @@ const esc = (v: unknown) =>
 /**
  * একটি POS বিক্রয়ের প্রিন্টযোগ্য মেমো/রশিদ নতুন উইন্ডোতে খুলে প্রিন্ট ডায়ালগ চালু করে।
  */
-export function printReceipt(sale: POSSale, items: POSSaleItem[], payments: SalePayment[] = []) {
+export function printReceipt(sale: POSSale, items: POSSaleItem[], payments: SalePayment[] = [], previousDue = 0) {
   const win = window.open('', '_blank', 'width=380,height=600')
   if (!win) {
     alert('প্রিন্ট উইন্ডো খুলতে ব্যর্থ হয়েছে। পপ-আপ ব্লক করা থাকলে অনুমতি দিন।')
@@ -91,6 +91,7 @@ export function printReceipt(sale: POSSale, items: POSSaleItem[], payments: Sale
           <tr class="grand"><td>সর্বমোট</td><td style="text-align:right;">৳${sale.total_amount}</td></tr>
           <tr><td>পরিশোধ</td><td style="text-align:right;">৳${paid}</td></tr>
           <tr style="font-weight:bold;${due > 0 ? 'color:#b91c1c;' : ''}"><td>বাকি (Due)</td><td style="text-align:right;">৳${due}</td></tr>
+          ${previousDue > 0 ? `<tr style="font-weight:bold;color:#b91c1c;"><td>পূর্বের বাকি</td><td style="text-align:right;">৳${previousDue}</td></tr><tr style="font-weight:bold;color:#b91c1c;"><td>সর্বমোট বাকি</td><td style="text-align:right;">৳${previousDue + due}</td></tr>` : ''}
         </table>
         <p class="footer">ধন্যবাদ! আবার আসবেন।</p>
         <script>

@@ -9,7 +9,7 @@ const MIN_ROWS = 9 // ছাপা মেমোর মতো ফাঁকা ঘ
  * নিউ প্রিন্টার্সের মেমো ডিজাইন (A5) — POS বিক্রয় থেকে অটো ভরা।
  * ছবি নয়, ভেক্টর HTML/CSS — তাই যেকোনো প্রিন্টারে ঝকঝকে আসে।
  */
-export function printMemo(sale: POSSale, items: POSSaleItem[], payments: SalePayment[] = [], customerAddress = '') {
+export function printMemo(sale: POSSale, items: POSSaleItem[], payments: SalePayment[] = [], customerAddress = '', previousDue = 0) {
   const win = window.open('', '_blank', 'width=620,height=900')
   if (!win) {
     alert('প্রিন্ট উইন্ডো খুলতে ব্যর্থ হয়েছে। পপ-আপ ব্লক করা থাকলে অনুমতি দিন।')
@@ -23,6 +23,11 @@ export function printMemo(sale: POSSale, items: POSSaleItem[], payments: SalePay
     .join('')
   const blanks = Array.from({ length: Math.max(0, MIN_ROWS - items.length) }, () => '<tr class="blank"><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('')
   const discount = Number(sale.discount_amount) > 0 ? `<div class="line"><span>ছাড়</span><b>− ৳${bn(sale.discount_amount)}</b></div>` : ''
+  // এই কাস্টমারের আগের বাকি (এই বিক্রি বাদে) থাকলে মেমোতে আলাদা করে দেখানো হয়
+  const prev = Number(previousDue) > 0 ? Number(previousDue) : 0
+  const prevLines = prev > 0
+    ? `<div class="line due"><span>পূর্বের বাকী =</span><b>৳${bn(prev)}</b></div><div class="line due"><span>সর্বমোট বাকী =</span><b>৳${bn(prev + Number(due))}</b></div>`
+    : ''
   const methods = payments.length ? payments.map((p) => p.method).filter((m, i, a) => a.indexOf(m) === i).length : 0
 
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>মেমো ${esc(sale.invoice_no || sale.sale_number)}</title>
@@ -73,6 +78,7 @@ td{border:1px solid #9bb3b9;padding:3px 5px;height:19px}
     <div class="line"><span>মোট =</span><b>৳${bn(sale.total_amount)}</b></div>
     <div class="line"><span>জমা =</span><b>৳${bn(paid)}</b></div>
     <div class="line due"><span>বাকী =</span><b>৳${bn(due)}</b></div>
+    ${prevLines}
   </div>
 </div>
 <div class="sigs"><div class="sig">ক্রেতার স্বাক্ষর</div><div class="sig">বিক্রেতার স্বাক্ষর</div></div>
