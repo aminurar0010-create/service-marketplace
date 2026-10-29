@@ -4,7 +4,7 @@ import { supabase, Service, ServiceRequiredDocument } from '../lib/supabase'
 import { getServiceEmoji } from '../lib/serviceEmoji'
 import ServiceCard from '../components/ServiceCard'
 import { useSEO } from '../lib/useSEO'
-import { ArrowLeft, Clock, FileText } from 'lucide-react'
+import { ArrowLeft, Clock, FileText, Wallet } from 'lucide-react'
 
 export default function ServiceDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -14,10 +14,28 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
+  // দাম ০ মানে নির্ধারিত নয় — সার্চ বিবরণে "মূল্য ৳০" লেখা হয় না
+  const hasPrice = !!service && Number(service.price) > 0
   useSEO(
     service ? `${service.name} — মনিরামপুর, যশোর | নিউ প্রিন্টার্স` : undefined,
     service
-      ? `${service.name} — সুন্দলপুর বাজার, মনিরামপুর, যশোর থেকে অর্ডার করুন। মূল্য ৳${service.price}। ${(service.description || '').slice(0, 100)}`
+      ? `${service.name} — সুন্দলপুর বাজার, মনিরামপুর, যশোর থেকে অর্ডার করুন।${hasPrice ? ` মূল্য ৳${service.price}।` : ''} ${(service.description || '').slice(0, 100)}`.trim()
+      : undefined,
+    service
+      ? {
+          image: service.image_url || null,
+          jsonLd: {
+            '@context': 'https://schema.org',
+            '@type': 'Service',
+            name: service.name,
+            description: service.description || undefined,
+            category: service.category || undefined,
+            image: service.image_url || undefined,
+            areaServed: 'মনিরামপুর, যশোর',
+            provider: { '@type': 'Store', name: 'নিউ প্রিন্টার্স (New Printers)' },
+            offers: hasPrice ? { '@type': 'Offer', price: Number(service.price), priceCurrency: 'BDT' } : undefined,
+          },
+        }
       : undefined
   )
 
@@ -82,6 +100,16 @@ export default function ServiceDetailPage() {
     )
   }
 
+  const formatHours = (h?: number | null) => (!h || h <= 0 ? null : h < 24 ? `${h} ঘণ্টা` : `${Math.round(h / 24)} দিন`)
+  const normalTime = formatHours(service.estimated_hours)
+  const urgentTime = formatHours(service.urgent_delivery_hours)
+  const urgentFeeText =
+    service.urgent_fee_type && Number(service.urgent_fee_value) > 0
+      ? service.urgent_fee_type === 'percentage'
+        ? `+${service.urgent_fee_value}%`
+        : `+৳${service.urgent_fee_value}`
+      : null
+
   return (
     <div className="min-h-screen bg-paper px-4 py-10 sm:py-14">
       <div className="max-w-4xl mx-auto">
@@ -107,13 +135,38 @@ export default function ServiceDetailPage() {
             <span className="font-stamp text-xs tracking-widest text-seal">{service.category}</span>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-ink-700 mt-1.5 mb-3">{service.name}</h1>
 
-            <div className="flex items-center gap-4 mb-5">
-              <span className="font-stamp text-3xl font-bold text-ink-600">৳{service.price}</span>
-              {!!service.estimated_hours && (
-                <span className="flex items-center gap-1.5 text-sm text-charcoal/60">
-                  <Clock size={15} />
-                  আনুমানিক {service.estimated_hours} ঘণ্টায় প্রস্তুত
-                </span>
+            {/* এক নজরে: খরচ / সময় / ডকুমেন্ট */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6" data-testid="service-at-a-glance">
+              <div className="bg-white rounded-lg border border-ink-50 p-3">
+                <p className="flex items-center gap-1.5 text-xs text-charcoal/50 mb-1">
+                  <Wallet size={14} className="text-brass" /> খরচ
+                </p>
+                {hasPrice ? (
+                  <p className="font-stamp text-2xl font-bold text-ink-600">৳{service.price}</p>
+                ) : (
+                  <p className="text-sm font-semibold text-ink-600 leading-snug">দাম জানতে যোগাযোগ করুন</p>
+                )}
+                {urgentFeeText && <p className="text-xs text-orange-600 mt-1">জরুরি হলে {urgentFeeText}</p>}
+              </div>
+
+              {normalTime && (
+                <div className="bg-white rounded-lg border border-ink-50 p-3">
+                  <p className="flex items-center gap-1.5 text-xs text-charcoal/50 mb-1">
+                    <Clock size={14} className="text-brass" /> সময়
+                  </p>
+                  <p className="text-sm font-semibold text-ink-600">প্রায় {normalTime}</p>
+                  {urgentTime && urgentFeeText && <p className="text-xs text-orange-600 mt-1">জরুরিতে {urgentTime}</p>}
+                </div>
+              )}
+
+              {requiredDocs.length > 0 && (
+                <div className="bg-white rounded-lg border border-ink-50 p-3 col-span-2 sm:col-span-1">
+                  <p className="flex items-center gap-1.5 text-xs text-charcoal/50 mb-1">
+                    <FileText size={14} className="text-brass" /> ডকুমেন্ট
+                  </p>
+                  <p className="text-sm font-semibold text-ink-600">{requiredDocs.length}টি লাগবে</p>
+                  <p className="text-xs text-charcoal/50 mt-1">নিচে তালিকা দেখুন</p>
+                </div>
               )}
             </div>
 

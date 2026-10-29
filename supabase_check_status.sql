@@ -117,7 +117,8 @@ with expected(file, kind, name, col) as (values
   ('phase3ka_order_payments_migration','function','record_order_payment',''),
   ('phase3ka_order_payments_migration','column','orders','paid_amount'),
   ('phase3ka_order_payments_migration','column','orders','credit_sale'),
-  ('phase3ka_order_payments_migration','column','orders','internal_note')
+  ('phase3ka_order_payments_migration','column','orders','internal_note'),
+  ('phase4g_popular_services','column','services','is_popular')
 ),
 missing as (
   select file, kind, name, col from expected e
