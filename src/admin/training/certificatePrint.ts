@@ -42,7 +42,7 @@ h1{font-size:40px;margin:14px 0 4px;color:#b8860b;letter-spacing:2px}
 <div class="foot">
 <div><div class="sig">প্রশিক্ষক</div></div>
 <div class="no">সনদ নং: <b>${esc(s.certificate_no)}</b><br>প্রদানের তারিখ: ${esc(bnDate(s.certificate_date))}</div>
-<div><div class="sig">প্রোপ্রাইটর: মোঃ মাসুদুর রহমান</div></div>
+<div><div class="sig">প্রোপ্রাইটর: মোঃ মিনহাজুল আবেদীন</div></div>
 </div></div></div></body></html>`)
   w.document.close()
   w.focus()

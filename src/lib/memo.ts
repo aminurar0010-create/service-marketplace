@@ -63,7 +63,7 @@ td{border:1px solid #9bb3b9;padding:3px 5px;height:19px}
 </style></head><body><div class="page">
 <div class="head">
   <div class="logo"><img src="${location.origin}/logo.png" alt="" onerror="this.style.display='none'"></div>
-  <div class="title"><h1>নিউ প্রিন্টার্স</h1><div class="tag">আইটি সলিউশন এ্যান্ড ট্রেনিং সেন্টার</div><span class="pill">প্রোপ্রাইটর: মোঃ মাসুদুর রহমান</span></div>
+  <div class="title"><h1>নিউ প্রিন্টার্স</h1><div class="tag">আইটি সলিউশন এ্যান্ড ট্রেনিং সেন্টার</div><span class="pill">প্রোপ্রাইটর: মোঃ মিনহাজুল আবেদীন</span></div>
 </div>
 <div class="contact">📞 ০১৯৬৮৬৭৩২৪১, ০১৯৩৬০১১০৪৫ &nbsp;|&nbsp; ✉ newprintssmj@gmail.com<br>📍 সুন্দলপুর বাজার, মনিরামপুর, যশোর</div>
 <div class="services">ব্যানার, পোস্টার, লিফলেট, ভিজিটিং কার্ড, আইডি কার্ড, ক্যাশ মেমো, মানি-রিসিট, প্যাড, লোগো, কালার আর্ট, প্রশিক্ষণ ও যাবতীয় ডিজিটাল সেবা</div>

@@ -4,7 +4,7 @@ import { Printer, X } from 'lucide-react'
 const BUSINESS = {
   name: 'নিউ প্রিন্টার্স',
   tagline: 'পরিষেবা মার্কেটপ্লেস',
-  owner: 'প্রোপ্রাইটর: মোঃ মাসুদুর রহমান',
+  owner: 'প্রোপ্রাইটর: মোঃ মিনহাজুল আবেদীন',
   phones: ['01968673241', '01936011045'],
   email: 'newprintssmj@gmail.com',
   address: 'সুন্দলপুর বাজার, মনিরামপুর, যশোর',
