@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { Banknote, Search, X, History } from 'lucide-react'
+import { Banknote, Search, X, History, Printer } from 'lucide-react'
 import { supabase, logActivity, CustomerDue, DueCollectionRow, OrderDue } from '../lib/supabase'
 import { PAY_METHODS, PayMethod, payMethodLabel } from './pos/posTypes'
+import StatementModal, { StatementTarget } from './StatementModal'
 
 const taka = (n: number) => '৳' + Number(n || 0).toLocaleString('bn-BD')
 
@@ -19,6 +20,7 @@ export default function DueCollectionTab() {
   const [method, setMethod] = useState<PayMethod>('cash')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [statementFor, setStatementFor] = useState<StatementTarget | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -194,12 +196,18 @@ export default function DueCollectionTab() {
                       <span className="block text-xs font-normal text-gray-500">{c.due_sales_count}টি ইনভয়েস</span>
                     </td>
                     <td className="px-6 py-3 text-sm text-gray-600">{format(new Date(c.oldest_due_at), 'dd/MM/yyyy')}</td>
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-3 whitespace-nowrap space-x-2">
                       <button
                         onClick={() => openCollect(c)}
                         className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition"
                       >
                         আদায় করুন
+                      </button>
+                      <button
+                        onClick={() => setStatementFor({ customerId: c.customer_id, name: c.name, phone: c.phone, code: c.customer_code })}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded hover:bg-gray-50 transition"
+                      >
+                        <Printer size={14} /> বিবরণী
                       </button>
                     </td>
                   </tr>
@@ -248,12 +256,18 @@ export default function DueCollectionTab() {
                       <span className="block text-xs text-green-600">পেয়েছি {taka(o.paid_amount)}</span>
                     </td>
                     <td className="px-6 py-3 text-sm font-bold text-red-600">{taka(o.due_amount)}</td>
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-3 whitespace-nowrap space-x-2">
                       <button
                         onClick={() => openOrderCollect(o)}
                         className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition"
                       >
                         টাকা নিন
+                      </button>
+                      <button
+                        onClick={() => setStatementFor({ customerId: o.shop_customer_id, name: o.customer_name, phone: o.customer_phone })}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded hover:bg-gray-50 transition"
+                      >
+                        <Printer size={14} /> বিবরণী
                       </button>
                     </td>
                   </tr>
@@ -289,6 +303,8 @@ export default function DueCollectionTab() {
           </div>
         )}
       </div>
+
+      {statementFor && <StatementModal target={statementFor} onClose={() => setStatementFor(null)} />}
 
       {orderTarget && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

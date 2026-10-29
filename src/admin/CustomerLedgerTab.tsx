@@ -12,6 +12,8 @@ import { bn } from 'date-fns/locale'
 import { BookUser, Search, Ban, CheckCircle2, Star, X, Save, UserPlus } from 'lucide-react'
 import { CustomerCreateForm } from '../components/CustomerPicker'
 import CustomerProfileModal from './CustomerProfileModal'
+import StatementModal, { StatementTarget } from './StatementModal'
+import { canViewTab } from '../lib/permissions'
 
 // shop_customer_summary (সব কাস্টমার) + পুরনো খাতা (VIP/ব্লক/ট্যাগ/নোট) একসাথে
 interface LedgerRow {
@@ -26,7 +28,10 @@ interface LedgerRow {
   lastAt: string | null
 }
 
-export default function CustomerLedgerTab() {
+export default function CustomerLedgerTab({ role }: { role?: string }) {
+  // বিবরণী প্রিন্ট শুধু সেই রোলে, যে রোল "বাকি আদায়" দেখতে পায়
+  const canStatement = canViewTab(role, 'due_collection')
+  const [statementFor, setStatementFor] = useState<StatementTarget | null>(null)
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -266,6 +271,14 @@ export default function CustomerLedgerTab() {
                           প্রোফাইল
                         </button>
                       )}
+                      {canStatement && r.profile && (
+                        <button
+                          onClick={() => setStatementFor({ customerId: r.profile!.id, name: r.name, phone: r.phone, code: r.code })}
+                          className="text-xs font-semibold text-gray-700 hover:text-gray-900"
+                        >
+                          বিবরণী
+                        </button>
+                      )}
                       <button
                         onClick={() => setEditingCustomer(legacyOf(r))}
                         className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
@@ -297,6 +310,8 @@ export default function CustomerLedgerTab() {
           onSaved={fetchCustomers}
         />
       )}
+
+      {statementFor && <StatementModal target={statementFor} onClose={() => setStatementFor(null)} />}
 
       {profileFor && (
         <CustomerProfileModal

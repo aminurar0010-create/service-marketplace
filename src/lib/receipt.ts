@@ -12,9 +12,9 @@ const paymentLabel = (method: string) => {
   return labels[method] || method
 }
 
-const SHOP_NAME = 'নিউ প্রিন্টার্স'
-const SHOP_TAGLINE = 'আইটি সলিউশন এ্যান্ড ট্রেনিং সেন্টার'
-const SHOP_CONTACT = 'সুন্দলপুর বাজার, মনিরামপুর, যশোর • মোবাইল: 01968673241'
+export const SHOP_NAME = 'নিউ প্রিন্টার্স'
+export const SHOP_TAGLINE = 'আইটি সলিউশন এ্যান্ড ট্রেনিং সেন্টার'
+export const SHOP_CONTACT = 'সুন্দলপুর বাজার, মনিরামপুর, যশোর • মোবাইল: 01968673241'
 
 const esc = (v: unknown) =>
   String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

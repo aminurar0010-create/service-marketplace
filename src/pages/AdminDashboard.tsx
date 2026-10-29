@@ -1134,7 +1134,7 @@ export default function AdminDashboardV2({ user, role }: { user: any; role?: str
           {activeTab === 'quotes' && <QuotesTab role={role} onGo={(t) => setActiveTab(t as Tab)} />}
           {activeTab === 'due_collection' && <DueCollectionTab />}
           {activeTab === 'users' && <UsersTab />}
-          {activeTab === 'customer_ledger' && <CustomerLedgerTab />}
+          {activeTab === 'customer_ledger' && <CustomerLedgerTab role={role} />}
           {activeTab === 'website' && <WebsiteTab />}
           {activeTab === 'blog' && <BlogTab />}
           {activeTab === 'prompts' && <AIPromptsTab />}
