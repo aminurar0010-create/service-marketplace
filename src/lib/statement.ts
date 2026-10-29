@@ -1,7 +1,6 @@
 import { format } from 'date-fns'
 import { supabase } from './supabase'
 import { normalizePhone } from './phone'
-import { SHOP_NAME, SHOP_TAGLINE, SHOP_CONTACT } from './receipt'
 
 /**
  * ফেজ ৭ — বাকির বিবরণী (Statement)।
@@ -157,7 +156,6 @@ export async function fetchStatement(customerId: string | null, phone: string): 
 }
 
 const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const taka = (n: number) => '৳' + Number(round2(n)).toLocaleString('bn-BD', { maximumFractionDigits: 2 })
 const day = (iso: string) => format(new Date(iso), 'dd/MM/yyyy')
 
 export function statementTotals(rows: StatementRow[]) {
@@ -169,95 +167,91 @@ export function statementTotals(rows: StatementRow[]) {
   }
 }
 
-/** নির্বাচিত সারিগুলো A4 কাগজে প্রিন্ট (নতুন উইন্ডো → প্রিন্ট/Save as PDF) */
+/** নির্বাচিত সারিগুলো A4 কাগজে প্রিন্ট — ডিজাইন POS মেমো (memo.ts)-র মতো */
 export function printStatement(customer: { name: string; phone: string; code?: string | null }, rows: StatementRow[]) {
-  const win = window.open('', '_blank', 'width=900,height=800')
+  const win = window.open('', '_blank', 'width=900,height=900')
   if (!win) {
     alert('প্রিন্ট উইন্ডো খুলতে ব্যর্থ হয়েছে। পপ-আপ ব্লক করা থাকলে অনুমতি দিন।')
     return
   }
   const t = statementTotals(rows)
+  const bn = (n: number) => Number(round2(n)).toLocaleString('bn-BD', { maximumFractionDigits: 2 })
+  const today = new Date().toLocaleDateString('bn-BD', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'long', year: 'numeric' })
 
   const body = rows
     .map((r, i) => {
       const pays = r.payments
-        .map((p) => `<div class="pay">${day(p.date)} — ${taka(p.amount)}${p.label ? ` (${esc(p.label.trim())})` : ''}</div>`)
+        .map((p) => `<div class="pay">${day(p.date)} — ৳${bn(p.amount)}${p.label ? ` (${esc(p.label.trim())})` : ''}</div>`)
         .join('')
-      return `
-      <tr>
+      return `<tr>
         <td class="c">${(i + 1).toLocaleString('bn-BD')}</td>
-        <td>${day(r.date)}</td>
-        <td><strong>${esc(r.ref)}</strong><div class="pay">${esc(r.title)}</div>${pays}</td>
-        <td class="r">${taka(r.total)}</td>
-        <td class="r">${taka(r.paid)}</td>
-        <td class="r due">${taka(r.due)}</td>
+        <td class="nw">${day(r.date)}</td>
+        <td><b>${esc(r.ref)}</b> <span class="kind">${esc(r.title)}</span>${pays}</td>
+        <td class="r">${bn(r.total)}</td>
+        <td class="r">${bn(r.paid)}</td>
+        <td class="r dueC">${bn(r.due)}</td>
       </tr>`
     })
     .join('')
 
-  win.document.write(`
-    <html>
-      <head>
-        <title>বাকির বিবরণী — ${esc(customer.name)}</title>
-        <meta charset="utf-8" />
-        <style>
-          @page { size: A4; margin: 14mm; }
-          body { font-family: 'Noto Sans Bengali', Arial, sans-serif; color: #111; font-size: 13px; margin: 0; }
-          .head { text-align: center; border-bottom: 2px solid #1F4D3D; padding-bottom: 8px; margin-bottom: 12px; }
-          .head h1 { margin: 0 0 2px 0; font-size: 22px; color: #1F4D3D; }
-          .head p { margin: 0; font-size: 11px; color: #555; }
-          h2 { text-align: center; font-size: 16px; margin: 6px 0 10px 0; }
-          .meta { display: flex; justify-content: space-between; margin-bottom: 10px; line-height: 1.6; }
-          table { width: 100%; border-collapse: collapse; }
-          thead { display: table-header-group; }
-          th { background: #EAF3EE; border: 1px solid #999; padding: 6px 5px; font-size: 12px; text-align: left; }
-          td { border: 1px solid #bbb; padding: 5px; vertical-align: top; }
-          tr { page-break-inside: avoid; }
-          .c { text-align: center; width: 28px; }
-          .r { text-align: right; white-space: nowrap; }
-          .due { font-weight: bold; color: #b91c1c; }
-          .pay { font-size: 10.5px; color: #555; margin-top: 2px; }
-          .totals { margin-top: 12px; margin-left: auto; width: 55%; page-break-inside: avoid; }
-          .totals td { border: none; padding: 3px 5px; }
-          .totals .grand td { border-top: 2px solid #333; font-weight: bold; font-size: 15px; padding-top: 6px; }
-          .footer { text-align: center; margin-top: 22px; font-size: 11px; color: #555; page-break-inside: avoid; }
-        </style>
-      </head>
-      <body>
-        <div class="head">
-          <h1>${SHOP_NAME}</h1>
-          <p>${SHOP_TAGLINE}</p>
-          <p>${SHOP_CONTACT}</p>
-        </div>
-        <h2>বাকির বিবরণী</h2>
-        <div class="meta">
-          <div>
-            কাস্টমার: <strong>${esc(customer.name)}</strong><br/>
-            ফোন: ${esc(customer.phone)}${customer.code ? ` • ${esc(customer.code)}` : ''}
-          </div>
-          <div style="text-align:right;">প্রিন্টের তারিখ: ${format(new Date(), 'dd/MM/yyyy')}</div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th class="c">#</th><th>তারিখ</th><th>কাজের বিবরণ</th>
-              <th style="text-align:right;">মোট টাকা</th><th style="text-align:right;">পেয়েছি</th><th style="text-align:right;">বাকি</th>
-            </tr>
-          </thead>
-          <tbody>${body}</tbody>
-        </table>
-        <table class="totals">
-          <tr><td>মোট কাজ</td><td class="r">${t.count.toLocaleString('bn-BD')}টি</td></tr>
-          <tr><td>মোট টাকা</td><td class="r">${taka(t.total)}</td></tr>
-          <tr><td>মোট পেয়েছি</td><td class="r">${taka(t.paid)}</td></tr>
-          <tr class="grand"><td>মোট বাকি</td><td class="r" style="color:#b91c1c;">${taka(t.due)}</td></tr>
-        </table>
-        <p class="footer">অনুগ্রহ করে বাকি টাকা দ্রুত পরিশোধ করুন। ধন্যবাদ।</p>
-        <script>
-          window.onload = function () { window.print(); };
-        </script>
-      </body>
-    </html>
-  `)
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>বাকির বিবরণী — ${esc(customer.name)}</title>
+<style>
+@page{size:A4 portrait;margin:10mm}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:'Noto Sans Bengali','Kalpurush',sans-serif;color:#17323b;font-size:12.5px;background:#fbf7ea}
+.page{padding:4mm 4mm 2mm}
+.head{display:flex;gap:10px;align-items:center;border-bottom:2px solid #b8860b;padding-bottom:6px}
+.logo{width:64px;height:64px;border-radius:12px;background:#0f4c5c;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.logo img{width:100%;height:100%;object-fit:contain}
+.title{flex:1;text-align:center}
+.title h1{margin:0;font-size:28px;color:#0f4c5c;line-height:1.1}
+.title .tag{font-size:12.5px;font-weight:700;color:#8a6508}
+.pill{display:inline-block;margin-top:3px;background:#0f4c5c;color:#fff;border-radius:4px;padding:1px 10px;font-size:11px}
+.contact{font-size:11px;text-align:center;margin:5px 0 2px;line-height:1.5}
+.services{font-size:9.5px;text-align:center;color:#444;border-top:1px solid #b8860b;border-bottom:1px solid #b8860b;padding:3px 0;margin:4px 0 8px}
+h2{text-align:center;margin:6px 0;font-size:17px;color:#0f4c5c;letter-spacing:.5px}
+.meta{display:flex;justify-content:space-between;margin:3px 0}
+.field{margin:5px 0;display:flex;gap:4px}
+.field span.v{flex:1;border-bottom:1px dotted #555;min-height:15px}
+table.t{width:100%;border-collapse:collapse;margin-top:8px}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+th{background:#0f4c5c;color:#fff;font-weight:600;padding:4px;border:1px solid #0f4c5c}
+td{border:1px solid #9bb3b9;padding:3px 5px;vertical-align:top}
+.c{text-align:center;width:26px}.r{text-align:right;white-space:nowrap}.nw{white-space:nowrap}
+.dueC{font-weight:700;color:#b00020}
+.kind{font-size:10px;color:#666}
+.pay{font-size:10px;color:#555;margin-top:1px}
+.bottom{display:flex;justify-content:flex-end;margin-top:8px;page-break-inside:avoid}
+.sum{width:50%}
+.line{display:flex;justify-content:space-between;border:1px solid #0f4c5c;margin-bottom:3px;padding:3px 8px;background:#e8f1f3}
+.line.due b{color:#b00020}
+.sigs{display:flex;justify-content:space-between;margin-top:30px;page-break-inside:avoid}
+.sig{width:42%;text-align:center;border-top:1px solid #8a6508;padding-top:3px;font-weight:700;color:#0f4c5c;font-size:11px}
+.note{text-align:center;font-size:10px;color:#666;margin-top:8px}
+</style></head><body><div class="page">
+<div class="head">
+  <div class="logo"><img src="${location.origin}/logo.png" alt="" onerror="this.style.display='none'"></div>
+  <div class="title"><h1>নিউ প্রিন্টার্স</h1><div class="tag">আইটি সলিউশন এ্যান্ড ট্রেনিং সেন্টার</div><span class="pill">প্রোপ্রাইটর: মোঃ মাসুদুর রহমান</span></div>
+</div>
+<div class="contact">📞 ০১৯৬৮৬৭৩২৪১, ০১৯৩৬০১১০৪৫ &nbsp;|&nbsp; ✉ newprintssmj@gmail.com<br>📍 সুন্দলপুর বাজার, মনিরামপুর, যশোর</div>
+<div class="services">ব্যানার, পোস্টার, লিফলেট, ভিজিটিং কার্ড, আইডি কার্ড, ক্যাশ মেমো, মানি-রিসিট, প্যাড, লোগো, কালার আর্ট, প্রশিক্ষণ ও যাবতীয় ডিজিটাল সেবা</div>
+<h2>বাকির বিবরণী</h2>
+<div class="meta"><div>তারিখ: <b>${esc(today)}</b></div>${customer.code ? `<div>কাস্টমার কোড: <b>${esc(customer.code)}</b></div>` : ''}</div>
+<div class="field">ক্রেতার নাম: <span class="v">${esc(customer.name)}</span></div>
+<div class="field">মোবাইল: <span class="v">${esc(customer.phone)}</span></div>
+<table class="t"><thead><tr><th>#</th><th style="width:13%">তারিখ</th><th>বিবরণ</th><th style="width:14%">মোট টাকা</th><th style="width:14%">জমা</th><th style="width:14%">বাকী</th></tr></thead>
+<tbody>${body}</tbody></table>
+<div class="bottom"><div class="sum">
+  <div class="line"><span>মোট কাজ =</span><b>${t.count.toLocaleString('bn-BD')}টি</b></div>
+  <div class="line"><span>মোট টাকা =</span><b>৳${bn(t.total)}</b></div>
+  <div class="line"><span>মোট জমা =</span><b>৳${bn(t.paid)}</b></div>
+  <div class="line due"><span>মোট বাকী =</span><b>৳${bn(t.due)}</b></div>
+</div></div>
+<div class="sigs"><div class="sig">ক্রেতার স্বাক্ষর</div><div class="sig">বিক্রেতার স্বাক্ষর</div></div>
+<div class="note">অনুগ্রহ করে বাকি টাকা দ্রুত পরিশোধ করুন — ধন্যবাদ</div>
+</div></body></html>`)
   win.document.close()
+  win.focus()
+  setTimeout(() => win.print(), 500)
 }
